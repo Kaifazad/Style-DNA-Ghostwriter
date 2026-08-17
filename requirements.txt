@@ -1,0 +1,9 @@
+# Install the package itself in editable mode:
+#   pip install -e .              # core only (no extra deps)
+#   pip install -e ".[mcp]"       # + MCP server
+#   pip install -e ".[generate]"  # + anthropic (code generation)
+#   pip install -e ".[dev]"       # + pytest (for running tests)
+#   pip install -e ".[all]"       # everything except dev
+
+# This file is intentionally minimal.
+# All optional dependencies are declared in pyproject.toml.

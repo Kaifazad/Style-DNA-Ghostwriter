@@ -1,0 +1,31 @@
+[project]
+name = "style-dna-ghostwriter"
+version = "0.1.0"
+description = "Learns a codebase's unwritten conventions and ghostwrites new code that matches them."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Kaifazad", email = "hello@kaifazad.in" }
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Homepage = "https://kaifazad.in"
+Repository = "https://github.com/kaifazad/style-dna-ghostwriter"
+
+[project.optional-dependencies]
+generate = ["anthropic>=0.34.0"]
+mcp = ["mcp>=1.9.0"]
+dev = ["pytest>=7.0"]
+all = ["anthropic>=0.34.0", "mcp>=1.9.0"]
+
+[project.scripts]
+style-dna = "style_dna.cli:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["style_dna*"]
