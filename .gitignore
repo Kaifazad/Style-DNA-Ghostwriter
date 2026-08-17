@@ -7,5 +7,6 @@ dist/
 .venv/
 venv/
 .style-dna/
+style_profile.json
 .mypy_cache/
 .tox/

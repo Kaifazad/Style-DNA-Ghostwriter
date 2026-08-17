@@ -26,7 +26,7 @@ def _section(profile: StyleProfile) -> str:
         f"{MARKER_START}\n"
         f"## Style DNA (auto-generated -- do not hand-edit this section)\n\n"
         f"These conventions were extracted from this codebase's own source "
-        f"({profile.files_analyzed} files analyzed). Follow them for any new "
+        f"({profile.total_files_analyzed} files analyzed). Follow them for any new "
         f"or modified code:\n\n"
         f"{profile.as_prompt_rules()}\n\n"
         f"Regenerate with: `style-dna init` (or `style-dna analyze .`)\n"

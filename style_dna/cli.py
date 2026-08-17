@@ -21,8 +21,11 @@ def cmd_init(args: argparse.Namespace) -> None:
 
     root = Path(args.path)
     profile = analyze_codebase(str(root))
-    if profile.files_analyzed == 0:
-        print(f"No parsable Python files found under '{root}'. Nothing to write.", file=sys.stderr)
+    if profile.total_files_analyzed == 0:
+        print(
+            f"No supported source files found under '{root}' (Python, JS/TS, React, Next.js, CSS, HTML). Nothing to write.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     profile_path = root / ".style-dna" / "style_profile.json"
@@ -31,7 +34,10 @@ def cmd_init(args: argparse.Namespace) -> None:
 
     written = write_convention_files(root, profile)
 
-    print(f"Analyzed {profile.files_analyzed} files from '{root}'.")
+    print(
+        f"Analyzed {profile.total_files_analyzed} files from '{root}' "
+        f"({profile.files_analyzed} Python, {profile.web_files_analyzed} Web)."
+    )
     print(f"Profile saved to: {profile_path}\n")
     print("Style rules written into (auto-read by most coding agents):")
     for f in written:
@@ -53,7 +59,10 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     profile = analyze_codebase(args.path, max_files=args.max_files)
     out_path = args.out or "style_profile.json"
     profile.save(out_path)
-    print(f"Analyzed {profile.files_analyzed} files from '{args.path}'.")
+    print(
+        f"Analyzed {profile.total_files_analyzed} files from '{args.path}' "
+        f"({profile.files_analyzed} Python, {profile.web_files_analyzed} Web)."
+    )
     print(f"Style profile saved to: {out_path}\n")
     print(profile.as_prompt_rules())
 

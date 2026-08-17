@@ -46,13 +46,13 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
             profile = StyleProfile.load(cached)
             return (
                 f"Loaded cached profile from '{cached}' "
-                f"({profile.files_analyzed} files analyzed).\n\n"
+                f"({profile.total_files_analyzed} files analyzed).\n\n"
                 f"{profile.as_prompt_rules()}"
             )
 
         profile = analyze_codebase(path)
-        if profile.files_analyzed == 0:
-            return f"No parsable Python files found under '{path}'."
+        if profile.total_files_analyzed == 0:
+            return f"No supported source files found under '{path}' (Python, JS/TS, React, Next.js, CSS, HTML)."
 
         if save:
             out = Path(path) / DEFAULT_PROFILE_PATH
@@ -60,7 +60,7 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
             profile.save(out)
 
         return (
-            f"Analyzed {profile.files_analyzed} files from '{path}'.\n\n"
+            f"Analyzed {profile.total_files_analyzed} files from '{path}'.\n\n"
             f"{profile.as_prompt_rules()}"
         )
 
@@ -81,8 +81,8 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
             return profile.as_prompt_rules()
 
         profile = analyze_codebase(path)
-        if profile.files_analyzed == 0:
-            return f"No parsable Python files found under '{path}'. No style rules available."
+        if profile.total_files_analyzed == 0:
+            return f"No supported source files found under '{path}'. No style rules available."
         return profile.as_prompt_rules()
 
     @mcp.tool()
@@ -101,7 +101,7 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
         out = Path(path) / DEFAULT_PROFILE_PATH
         out.parent.mkdir(parents=True, exist_ok=True)
         profile.save(out)
-        return f"Refreshed profile from {profile.files_analyzed} files.\n\n{profile.as_prompt_rules()}"
+        return f"Refreshed profile from {profile.total_files_analyzed} files.\n\n{profile.as_prompt_rules()}"
 
     return mcp
 

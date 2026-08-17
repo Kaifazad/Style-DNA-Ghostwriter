@@ -326,3 +326,43 @@ class TestWebPromptRules:
         assert loaded.nextjs_router == profile.nextjs_router
         assert loaded.react_component_style == profile.react_component_style
         assert loaded.styling_approach == profile.styling_approach
+
+
+# ---------------------------------------------------------------------------
+# Web CLI integration tests
+# ---------------------------------------------------------------------------
+
+class TestWebCLI:
+    def test_cli_init_on_web_repo(self, tmp_path, monkeypatch):
+        from style_dna.cli import main
+        import shutil
+
+        # Copy sample web repo to temp dir
+        target = tmp_path / "web_app"
+        shutil.copytree(SAMPLE_WEB_REPO, target)
+
+        # Run style-dna init on target
+        main(["init", str(target)])
+
+        # Verify conventions files were created
+        assert (target / "CLAUDE.md").exists()
+        assert (target / "AGENTS.md").exists()
+        assert (target / ".cursorrules").exists()
+        assert (target / ".style-dna" / "style_profile.json").exists()
+
+        claude_md = (target / "CLAUDE.md").read_text(encoding="utf-8")
+        assert "Web Conventions" in claude_md
+        assert "Next.js" in claude_md
+
+    def test_cli_show_json(self, tmp_path, capsys):
+        from style_dna.cli import main
+        profile_path = tmp_path / "profile.json"
+        profile = analyze_codebase(str(SAMPLE_WEB_REPO))
+        profile.save(profile_path)
+
+        main(["show", str(profile_path), "--format", "json"])
+        captured = capsys.readouterr()
+        import json
+        data = json.loads(captured.out)
+        assert data["web_files_analyzed"] > 0
+        assert "Next.js" in data["web_frameworks"]

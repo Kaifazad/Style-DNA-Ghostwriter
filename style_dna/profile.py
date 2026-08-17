@@ -21,6 +21,10 @@ class StyleProfile:
     files_analyzed: int = 0
     web_files_analyzed: int = 0   # JS/TS/JSX/TSX/CSS/HTML files
 
+    @property
+    def total_files_analyzed(self) -> int:
+        return self.files_analyzed + self.web_files_analyzed
+
     # ── Python: Naming ────────────────────────────────────────────
     function_naming: str = "unknown"       # snake_case | camelCase | PascalCase | mixed
     variable_naming: str = "unknown"
