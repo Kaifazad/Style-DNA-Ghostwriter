@@ -130,14 +130,15 @@ class TestStyleProfile:
         with pytest.raises(ValueError, match="Could not load"):
             StyleProfile.load(bad)
 
-    def test_load_outdated_schema_raises_value_error(self, tmp_path):
-        """A JSON with unexpected keys should raise ValueError, not TypeError."""
+    def test_load_outdated_schema_drops_unknown_fields(self, tmp_path):
+        """A JSON with unexpected keys should silently drop them, not crash."""
         out = tmp_path / "profile.json"
         out.write_text(
             json.dumps({"unknown_field_xyz": "boom", "files_analyzed": 5}), encoding="utf-8"
         )
-        with pytest.raises(ValueError, match="outdated or corrupted"):
-            StyleProfile.load(out)
+        loaded = StyleProfile.load(out)
+        assert loaded.files_analyzed == 5
+        assert not hasattr(loaded, "unknown_field_xyz")
 
     def test_as_prompt_rules_snake_case(self):
         p = self._make_profile()

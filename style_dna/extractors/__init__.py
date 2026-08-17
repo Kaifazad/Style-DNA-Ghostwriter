@@ -8,8 +8,13 @@ from .structure import (
     extract_type_hints,
     extract_common_patterns,
 )
+from .js_ts import extract_js_ts
+from .react_next import extract_react_next
+from .css_styling import extract_css_styling
+from .html_extractor import extract_html
 
 __all__ = [
+    # Python extractors
     "extract_naming",
     "extract_docstrings",
     "extract_error_handling",
@@ -18,4 +23,9 @@ __all__ = [
     "extract_structure",
     "extract_type_hints",
     "extract_common_patterns",
+    # Web extractors
+    "extract_js_ts",
+    "extract_react_next",
+    "extract_css_styling",
+    "extract_html",
 ]
