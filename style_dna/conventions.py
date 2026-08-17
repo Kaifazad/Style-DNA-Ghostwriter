@@ -14,10 +14,12 @@ MARKER_END = "<!-- style-dna:end -->"
 
 # Files various agents auto-read for project context/instructions.
 TARGET_FILES = [
-    "CLAUDE.md",       # Claude Code
-    "AGENTS.md",        # Codex, OpenCode, and the emerging cross-tool convention
-    ".cursorrules",      # Cursor
-    ".github/copilot-instructions.md",  # GitHub Copilot
+    "GEMINI.md",                         # Google Antigravity & Gemini
+    "CLAUDE.md",                         # Claude Code
+    "AGENTS.md",                         # Google Antigravity, Codex, OpenCode
+    ".cursorrules",                      # Cursor
+    ".windsurfrules",                    # Windsurf
+    ".github/copilot-instructions.md",   # GitHub Copilot
 ]
 
 

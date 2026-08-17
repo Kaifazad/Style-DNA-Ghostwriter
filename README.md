@@ -71,9 +71,11 @@ read at session start:
 
 | File | Read automatically by |
 |---|---|
+| `GEMINI.md` | Google Antigravity & Gemini Code Assist |
 | `CLAUDE.md` | Claude Code |
-| `AGENTS.md` | Codex, OpenCode, and tools following the AGENTS convention |
+| `AGENTS.md` | Google Antigravity, Codex, OpenCode, and tools following the AGENTS standard |
 | `.cursorrules` | Cursor |
+| `.windsurfrules` | Windsurf |
 | `.github/copilot-instructions.md` | GitHub Copilot |
 
 For agents that speak the **Model Context Protocol** (Claude Code, Cursor, and

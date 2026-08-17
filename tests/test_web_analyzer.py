@@ -345,14 +345,16 @@ class TestWebCLI:
         main(["init", str(target)])
 
         # Verify conventions files were created
+        assert (target / "GEMINI.md").exists()
         assert (target / "CLAUDE.md").exists()
         assert (target / "AGENTS.md").exists()
         assert (target / ".cursorrules").exists()
+        assert (target / ".windsurfrules").exists()
         assert (target / ".style-dna" / "style_profile.json").exists()
 
-        claude_md = (target / "CLAUDE.md").read_text(encoding="utf-8")
-        assert "Web Conventions" in claude_md
-        assert "Next.js" in claude_md
+        gemini_md = (target / "GEMINI.md").read_text(encoding="utf-8")
+        assert "Web Conventions" in gemini_md
+        assert "Next.js" in gemini_md
 
     def test_cli_show_json(self, tmp_path, capsys):
         from style_dna.cli import main

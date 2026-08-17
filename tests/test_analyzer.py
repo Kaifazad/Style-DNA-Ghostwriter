@@ -189,24 +189,25 @@ class TestConventions:
     def test_content_has_markers(self, tmp_path):
         profile = self._make_profile()
         write_convention_files(tmp_path, profile)
-        content = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
-        assert MARKER_START in content
-        assert MARKER_END in content
+        for fname in ("GEMINI.md", "CLAUDE.md", "AGENTS.md", ".cursorrules", ".windsurfrules"):
+            content = (tmp_path / fname).read_text(encoding="utf-8")
+            assert MARKER_START in content
+            assert MARKER_END in content
 
     def test_upsert_replaces_existing_section(self, tmp_path):
         profile = self._make_profile()
         # Write once
         write_convention_files(tmp_path, profile)
-        first = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+        first = (tmp_path / "GEMINI.md").read_text(encoding="utf-8")
         # Write again — should not double-up
         write_convention_files(tmp_path, profile)
-        second = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+        second = (tmp_path / "GEMINI.md").read_text(encoding="utf-8")
         assert second.count(MARKER_START) == 1, "Section was duplicated on second write"
         assert second == first, "Content changed unexpectedly on idempotent re-run"
 
     def test_appends_to_existing_file(self, tmp_path):
         profile = self._make_profile()
-        existing = tmp_path / "CLAUDE.md"
+        existing = tmp_path / "GEMINI.md"
         existing.write_text("# My project\n\nsome notes here\n", encoding="utf-8")
         write_convention_files(tmp_path, profile)
         content = existing.read_text(encoding="utf-8")
@@ -217,6 +218,8 @@ class TestConventions:
         profile = self._make_profile()
         write_convention_files(tmp_path, profile)
         assert (tmp_path / ".github" / "copilot-instructions.md").exists()
+        assert (tmp_path / "GEMINI.md").exists()
+        assert (tmp_path / ".windsurfrules").exists()
 
 
 # ---------------------------------------------------------------------------
