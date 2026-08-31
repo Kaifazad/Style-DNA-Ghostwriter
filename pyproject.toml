@@ -3,16 +3,37 @@ name = "style-dna-ghostwriter"
 version = "0.1.0"
 description = "Learns a codebase's unwritten conventions and ghostwrites new code that matches them."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Kaifazad", email = "hello@kaifazad.in" }
 ]
 requires-python = ">=3.10"
 dependencies = []
+keywords = [
+    "code-style", "conventions", "ghostwriter", "ai-coding",
+    "style-guide", "mcp", "claude", "cursor", "copilot",
+    "react", "nextjs", "tailwind", "python", "typescript",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Code Generators",
+    "Typing :: Typed",
+]
 
 [project.urls]
 Homepage = "https://kaifazad.in"
 Repository = "https://github.com/kaifazad/style-dna-ghostwriter"
+Documentation = "https://github.com/kaifazad/style-dna-ghostwriter#readme"
+Issues = "https://github.com/kaifazad/style-dna-ghostwriter/issues"
 
 [project.optional-dependencies]
 generate = ["anthropic>=0.34.0"]

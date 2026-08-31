@@ -1,0 +1,5 @@
+include LICENSE
+include README.md
+recursive-include style_dna *.py py.typed
+recursive-include examples *.py *.ts *.tsx *.css *.html *.json
+recursive-include tests *.py
