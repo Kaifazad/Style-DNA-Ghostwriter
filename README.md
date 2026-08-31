@@ -7,6 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](tests/)
+[![M8ven Score](https://m8ven.ai/badge/mcp/kaifazad-style-dna-ghostwriter-ihehal)](https://m8ven.ai/mcp/kaifazad-style-dna-ghostwriter-ihehal)
 
 </div>
 

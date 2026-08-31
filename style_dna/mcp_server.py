@@ -22,13 +22,110 @@ from .profile import StyleProfile
 DEFAULT_PROFILE_PATH = ".style-dna/style_profile.json"
 
 
+def _analyze_repo_impl(path: str = ".", save: bool = True, force: bool = False) -> str:
+    """Core implementation for analyze_repo."""
+    cached = Path(path) / DEFAULT_PROFILE_PATH
+    if not force and cached.exists():
+        profile = StyleProfile.load(cached)
+        return (
+            f"Loaded cached profile from '{cached}' "
+            f"({profile.total_files_analyzed} files analyzed).\n\n"
+            f"{profile.as_prompt_rules()}"
+        )
+
+    profile = analyze_codebase(path)
+    if profile.total_files_analyzed == 0:
+        return f"No supported source files found under '{path}' (Python, JS/TS, React, Next.js, CSS, HTML)."
+
+    if save:
+        out = Path(path) / DEFAULT_PROFILE_PATH
+        out.parent.mkdir(parents=True, exist_ok=True)
+        profile.save(out)
+
+    return (
+        f"Analyzed {profile.total_files_analyzed} files from '{path}'.\n\n"
+        f"{profile.as_prompt_rules()}"
+    )
+
+
+def _get_style_rules_impl(path: str = ".") -> str:
+    """Core implementation for get_style_rules."""
+    cached = Path(path) / DEFAULT_PROFILE_PATH
+    if cached.exists():
+        profile = StyleProfile.load(cached)
+        return profile.as_prompt_rules()
+
+    profile = analyze_codebase(path)
+    if profile.total_files_analyzed == 0:
+        return f"No supported source files found under '{path}'. No style rules available."
+    return profile.as_prompt_rules()
+
+
+def _refresh_style_profile_impl(path: str = ".") -> str:
+    """Core implementation for refresh_style_profile."""
+    profile = analyze_codebase(path)
+    out = Path(path) / DEFAULT_PROFILE_PATH
+    out.parent.mkdir(parents=True, exist_ok=True)
+    profile.save(out)
+    return f"Refreshed profile from {profile.total_files_analyzed} files.\n\n{profile.as_prompt_rules()}"
+
+
+def analyze_repo(path: str = ".", save: bool = True, force: bool = False) -> str:
+    """Analyze a codebase's real coding conventions (naming, docstrings,
+    error handling, typing, formatting, imports) and return them as rules.
+
+    Args:
+        path: Path to the codebase root to analyze. Defaults to the current directory.
+        save: If true, saves the profile to .style-dna/style_profile.json for reuse.
+        force: If true, re-analyzes even when a cached profile already exists.
+
+    Returns:
+        Plain-English style rules extracted from real source examples.
+    """
+    return _analyze_repo_impl(path=path, save=save, force=force)
+
+
+def get_style_rules(path: str = ".") -> str:
+    """Get the style rules for a codebase, using a cached profile if one
+    exists at .style-dna/style_profile.json, otherwise analyzing fresh.
+
+    Args:
+        path: Path to the codebase root.
+
+    Returns:
+        Plain-English style rules to follow when writing new code in this repo.
+    """
+    return _get_style_rules_impl(path=path)
+
+
+def refresh_style_profile(path: str = ".") -> str:
+    """Re-analyze a codebase and overwrite its cached style profile.
+    Call this after significant new code has been merged, so the learned
+    conventions stay current.
+
+    Args:
+        path: Path to the codebase root.
+
+    Returns:
+        Confirmation message with the updated rules.
+    """
+    return _refresh_style_profile_impl(path=path)
+
+
 def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
     """Import FastMCP and register all tools. Called once inside run_server()."""
     from mcp.server.fastmcp import FastMCP  # deferred: only required with [mcp]
 
     mcp = FastMCP("style-dna-ghostwriter")
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        }
+    )
     def analyze_repo(path: str = ".", save: bool = True, force: bool = False) -> str:
         """Analyze a codebase's real coding conventions (naming, docstrings,
         error handling, typing, formatting, imports) and return them as rules.
@@ -41,30 +138,16 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
         Returns:
             Plain-English style rules extracted from real source examples.
         """
-        cached = Path(path) / DEFAULT_PROFILE_PATH
-        if not force and cached.exists():
-            profile = StyleProfile.load(cached)
-            return (
-                f"Loaded cached profile from '{cached}' "
-                f"({profile.total_files_analyzed} files analyzed).\n\n"
-                f"{profile.as_prompt_rules()}"
-            )
+        return _analyze_repo_impl(path=path, save=save, force=force)
 
-        profile = analyze_codebase(path)
-        if profile.total_files_analyzed == 0:
-            return f"No supported source files found under '{path}' (Python, JS/TS, React, Next.js, CSS, HTML)."
-
-        if save:
-            out = Path(path) / DEFAULT_PROFILE_PATH
-            out.parent.mkdir(parents=True, exist_ok=True)
-            profile.save(out)
-
-        return (
-            f"Analyzed {profile.total_files_analyzed} files from '{path}'.\n\n"
-            f"{profile.as_prompt_rules()}"
-        )
-
-    @mcp.tool()
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        }
+    )
     def get_style_rules(path: str = ".") -> str:
         """Get the style rules for a codebase, using a cached profile if one
         exists at .style-dna/style_profile.json, otherwise analyzing fresh.
@@ -75,17 +158,16 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
         Returns:
             Plain-English style rules to follow when writing new code in this repo.
         """
-        cached = Path(path) / DEFAULT_PROFILE_PATH
-        if cached.exists():
-            profile = StyleProfile.load(cached)
-            return profile.as_prompt_rules()
+        return _get_style_rules_impl(path=path)
 
-        profile = analyze_codebase(path)
-        if profile.total_files_analyzed == 0:
-            return f"No supported source files found under '{path}'. No style rules available."
-        return profile.as_prompt_rules()
-
-    @mcp.tool()
+    @mcp.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        }
+    )
     def refresh_style_profile(path: str = ".") -> str:
         """Re-analyze a codebase and overwrite its cached style profile.
         Call this after significant new code has been merged, so the learned
@@ -97,11 +179,7 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
         Returns:
             Confirmation message with the updated rules.
         """
-        profile = analyze_codebase(path)
-        out = Path(path) / DEFAULT_PROFILE_PATH
-        out.parent.mkdir(parents=True, exist_ok=True)
-        profile.save(out)
-        return f"Refreshed profile from {profile.total_files_analyzed} files.\n\n{profile.as_prompt_rules()}"
+        return _refresh_style_profile_impl(path=path)
 
     return mcp
 
