@@ -11,5 +11,5 @@ looks like it was written by the same team.
 from .profile import StyleProfile
 from .analyzer import analyze_codebase
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = ["StyleProfile", "analyze_codebase"]
