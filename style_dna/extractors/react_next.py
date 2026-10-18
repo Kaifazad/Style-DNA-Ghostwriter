@@ -153,7 +153,6 @@ def extract_react_next(
     """
     use_client_count = 0
     use_server_count = 0
-    total_components = 0
     arrow_components = 0
     func_components = 0
     custom_hooks: list[str] = []
@@ -178,7 +177,6 @@ def extract_react_next(
         arrow_components += len(arrow_matches)
         func_components += len(func_matches)
         if arrow_matches or func_matches:
-            total_components += 1
             component_paths.append(path)
 
         # ── Custom hooks ──

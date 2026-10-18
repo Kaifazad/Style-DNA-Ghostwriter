@@ -1,9 +1,13 @@
 """Command-line interface for Style DNA Ghostwriter.
 
 Usage:
-    style-dna analyze <path_to_codebase> [--out profile.json]
-    style-dna show <profile.json>
-    style-dna generate <profile.json> "<task description>" [--out result.py]
+    style-dna init [path]                         # analyze + write convention files
+    style-dna analyze <path> [--out profile.json]
+    style-dna show <profile.json> [--format text|json]
+    style-dna generate <profile.json> "<task>"    # AI ghostwriter (needs anthropic)
+    style-dna check <file> [--profile profile.json] [--lang auto]  # P1.2
+    style-dna monorepo <path> [--out dir]         # P2.2
+    style-dna mcp                                 # MCP stdio server
 """
 
 from __future__ import annotations
@@ -23,7 +27,8 @@ def cmd_init(args: argparse.Namespace) -> None:
     profile = analyze_codebase(str(root))
     if profile.total_files_analyzed == 0:
         print(
-            f"No supported source files found under '{root}' (Python, JS/TS, React, Next.js, CSS, HTML). Nothing to write.",
+            f"No supported source files found under '{root}' "
+            "(Python, JS/TS, React, Next.js, CSS, HTML). Nothing to write.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -89,10 +94,100 @@ def cmd_generate(args: argparse.Namespace) -> None:
         print(code)
 
 
+def cmd_check(args: argparse.Namespace) -> None:
+    """P1.2: Verify a source file against extracted style conventions."""
+    from .verifier import check_code_style  # deferred
+
+    # Load code
+    source_path = Path(args.file)
+    try:
+        code = source_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError as e:
+        print(f"Error reading '{args.file}': {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Load profile
+    if args.profile:
+        try:
+            profile = StyleProfile.load(args.profile)
+        except ValueError as e:
+            print(f"Error loading profile: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Auto-discover: walk up from the file looking for .style-dna/
+        search_root = source_path.resolve().parent
+        found = None
+        for ancestor in [search_root, *search_root.parents]:
+            candidate = ancestor / ".style-dna" / "style_profile.json"
+            if candidate.exists():
+                found = candidate
+                break
+        if found is None:
+            print(
+                "No style profile found. Run 'style-dna init' or pass --profile.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        try:
+            profile = StyleProfile.load(found)
+        except ValueError as e:
+            print(f"Error loading profile: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    # Detect language from extension if not provided
+    language = args.lang
+    if language == "auto":
+        ext_map = {
+            ".py": "python",
+            ".js": "js", ".jsx": "jsx", ".mjs": "js", ".cjs": "js",
+            ".ts": "ts", ".tsx": "tsx",
+        }
+        language = ext_map.get(source_path.suffix.lower(), "auto")
+
+    violations = check_code_style(code, profile, language=language)
+
+    if not violations:
+        print(f"PASS: {source_path.name} - No style violations found.")
+        sys.exit(0)
+
+    print(f"FAIL: {source_path.name} - {len(violations)} violation(s) found:\n")
+    for v in violations:
+        loc = f"line {v.line}" if v.line > 0 else "file"
+        tag = {"error": "[ERROR]", "warning": "[WARN] ", "info": "[INFO] "}.get(v.severity, "[INFO] ")
+        print(f"  {tag} {loc} [{v.rule}] {v.message}")
+
+    sys.exit(1 if any(v.severity == "error" for v in violations) else 0)
+
+
+def cmd_monorepo(args: argparse.Namespace) -> None:
+    """P2.2: Analyze all packages in a monorepo."""
+    from .monorepo import analyze_monorepo  # deferred
+
+    mono = analyze_monorepo(args.path)
+
+    print(mono.summary())
+    print()
+
+    if args.out:
+        out_dir = Path(args.out)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for pkg in mono.packages:
+            if pkg.profile.total_files_analyzed == 0:
+                continue
+            safe_name = pkg.name.replace("/", "__").replace("@", "")
+            out_file = out_dir / f"{safe_name}.json"
+            pkg.profile.save(out_file)
+            print(f"  Saved {pkg.name} → {out_file}")
+        print(f"\nAll profiles written to: {args.out}")
+    else:
+        print(mono.as_prompt_rules())
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="style-dna", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
+    # ── init ──────────────────────────────────────────────────────
     p_init = sub.add_parser(
         "init",
         help="One-shot setup: analyze the repo and write rules into CLAUDE.md/AGENTS.md/.cursorrules/etc.",
@@ -100,15 +195,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("path", nargs="?", default=".", help="Path to the project root (default: cwd)")
     p_init.set_defaults(func=cmd_init)
 
+    # ── mcp ───────────────────────────────────────────────────────
     p_mcp = sub.add_parser("mcp", help="Run as an MCP server (stdio) for MCP-compatible agents")
     p_mcp.set_defaults(func=cmd_mcp)
 
+    # ── analyze ───────────────────────────────────────────────────
     p_analyze = sub.add_parser("analyze", help="Analyze a codebase and build a style profile")
     p_analyze.add_argument("path", help="Path to the codebase root")
     p_analyze.add_argument("--out", help="Where to save the style_profile.json", default=None)
     p_analyze.add_argument("--max-files", type=int, default=300, help="Max files to parse")
     p_analyze.set_defaults(func=cmd_analyze)
 
+    # ── show ──────────────────────────────────────────────────────
     p_show = sub.add_parser("show", help="Print a saved style profile as plain-English rules")
     p_show.add_argument("profile", help="Path to style_profile.json")
     p_show.add_argument(
@@ -119,12 +217,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_show.set_defaults(func=cmd_show)
 
+    # ── generate ──────────────────────────────────────────────────
     p_generate = sub.add_parser("generate", help="Generate code matching a style profile")
     p_generate.add_argument("profile", help="Path to style_profile.json")
     p_generate.add_argument("task", help="Description of the code to generate")
     p_generate.add_argument("--out", help="Write generated code to this file", default=None)
     p_generate.add_argument("--model", default="claude-sonnet-4-6", help="Model to use")
     p_generate.set_defaults(func=cmd_generate)
+
+    # ── check (P1.2) ──────────────────────────────────────────────
+    p_check = sub.add_parser(
+        "check",
+        help="Check a source file against extracted style conventions (P1)",
+    )
+    p_check.add_argument("file", help="Path to the source file to check")
+    p_check.add_argument(
+        "--profile",
+        default=None,
+        help="Path to style_profile.json (auto-discovered if omitted)",
+    )
+    p_check.add_argument(
+        "--lang",
+        default="auto",
+        choices=["auto", "python", "js", "ts", "tsx", "jsx"],
+        help="Language of the file (default: auto-detect from extension)",
+    )
+    p_check.set_defaults(func=cmd_check)
+
+    # ── monorepo (P2.2) ───────────────────────────────────────────
+    p_mono = sub.add_parser(
+        "monorepo",
+        help="Analyze all packages in a monorepo and print per-package style rules (P2)",
+    )
+    p_mono.add_argument("path", nargs="?", default=".", help="Path to monorepo root (default: cwd)")
+    p_mono.add_argument(
+        "--out",
+        default=None,
+        metavar="DIR",
+        help="Save per-package style_profile.json files into this directory",
+    )
+    p_mono.set_defaults(func=cmd_monorepo)
 
     return parser
 

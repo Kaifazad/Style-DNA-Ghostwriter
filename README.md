@@ -60,15 +60,17 @@ Style profile saved to: style_profile.json
 
 ## Works with any coding agent
 
-One command wires the extracted style into every agent your team uses —
-no plugin, no per-tool config:
+### Zero-Friction Setup via `uvx` (No local clone or venv needed)
+Run directly in any project:
 
 ```bash
-style-dna init
+uvx style-dna-ghostwriter init
 ```
 
-This writes the rules directly into the convention files agents already
-read at session start:
+This analyzes the repository, writes conventions into your agent instruction files, and sets up `.style-dna/style_profile.json`.
+
+One command wires the extracted style into every agent your team uses —
+no plugin, no per-tool config:
 
 | File | Read automatically by |
 |---|---|
@@ -79,22 +81,75 @@ read at session start:
 | `.windsurfrules` | Windsurf |
 | `.github/copilot-instructions.md` | GitHub Copilot |
 
-For agents that speak the **Model Context Protocol** (Claude Code, Cursor, and
-others), `style-dna init` also prints a ready-to-paste MCP config so the
-agent can pull rules live instead of from a static file:
+---
+
+## MCP Server (Model Context Protocol)
+
+Add Style DNA to your Claude Code, Cursor, or Zed configuration (`claude_desktop_config.json` or `mcp.json`):
 
 ```json
 {
   "mcpServers": {
     "style-dna": {
-      "command": "style-dna",
-      "args": ["mcp"]
+      "command": "uvx",
+      "args": ["style-dna-ghostwriter", "mcp"]
     }
   }
 }
 ```
 
-Exposed MCP tools: `analyze_repo`, `get_style_rules`, `refresh_style_profile`.
+### Exposed MCP Primitives
+
+* **Tools**:
+  * `analyze_repo(path, save, force)`: Extracts conventions from source code.
+  * `get_style_rules(path)`: Returns human-readable rules for the current repo.
+  * `refresh_style_profile(path)`: Re-analyzes after code changes.
+  * `check_code_style(code, path, language)`: **New in v0.2.0** — Verifies a generated snippet against repo conventions and returns line-specific violations.
+* **Passive Resources** (auto-attached to agent context):
+  * `style-dna://profile`: Full JSON profile of extracted conventions.
+  * `style-dna://rules`: Plain-English rules for immediate prompt conditioning.
+* **Prompt**:
+  * `/ghostwrite(task, path)`: System prompt template that conditions any model to ghostwrite conforming code.
+
+---
+
+## Verification & Linting (`style-dna check`)
+
+Ensure generated or modified code strictly adheres to your codebase's style DNA before committing:
+
+```bash
+# Verify a Python, TypeScript, or React file:
+style-dna check ./src/components/ProductCard.tsx
+
+# Output:
+# ✗ ProductCard.tsx: 2 violation(s) found:
+#   ⚠  line 12  [style.semicolons]  Remove trailing semicolon — this repo omits them.
+#   ℹ  line 24  [style.imports]     Use path aliases (`@/...`) instead of relative paths — repo convention.
+```
+
+---
+
+## Monorepo Support (`style-dna monorepo`)
+
+Analyzes npm/pnpm/Yarn workspaces, Lerna, Nx, and Python sub-packages with distinct conventions per package:
+
+```bash
+style-dna monorepo . --out .style-dna/packages/
+```
+
+---
+
+## GitHub Action
+
+Automatically extract and verify conventions in CI or sync agent instructions on push:
+
+```yaml
+- name: Extract & Verify Style DNA
+  uses: kaifazad/style-dna-ghostwriter@v0.2.0
+  with:
+    path: "."
+    write-convention-files: "true"
+```
 
 ---
 

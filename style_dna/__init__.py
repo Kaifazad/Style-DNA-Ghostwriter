@@ -10,6 +10,15 @@ looks like it was written by the same team.
 
 from .profile import StyleProfile
 from .analyzer import analyze_codebase
+from .verifier import check_code_style, StyleViolation
+from .monorepo import analyze_monorepo, MonorepoProfile
 
-__version__ = "0.1.1"
-__all__ = ["StyleProfile", "analyze_codebase"]
+__version__ = "0.2.0"
+__all__ = [
+    "StyleProfile",
+    "analyze_codebase",
+    "check_code_style",
+    "StyleViolation",
+    "analyze_monorepo",
+    "MonorepoProfile",
+]

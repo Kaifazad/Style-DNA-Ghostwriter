@@ -1,0 +1,69 @@
+name: "Style DNA Sync & Verify"
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  style-dna:
+    name: Extract & Sync Style DNA
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Style DNA Ghostwriter Action
+        id: style-dna
+        uses: ./
+        with:
+          path: "."
+          output-profile: ".style-dna/style_profile.json"
+          write-convention-files: "true"
+          max-files: "500"
+
+      - name: Print Analysis Summary
+        run: |
+          echo "Analyzed ${{ steps.style-dna.outputs.files-analyzed }} source files."
+          echo "Profile saved to: ${{ steps.style-dna.outputs.profile-path }}"
+
+      - name: Verify Changed Files Conform to Conventions (PR only)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          # Get list of changed Python & JS/TS files in this PR
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py|js|jsx|ts|tsx)$' || true)
+
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Checking style conventions on changed files:"
+            for file in $CHANGED_FILES; do
+              if [ -f "$file" ]; then
+                echo "--> Checking $file"
+                style-dna check "$file" || echo "::warning file=$file::Style convention mismatch detected"
+              fi
+            done
+          else
+            echo "No supported source files modified in this PR."
+          fi
+
+      - name: Commit Updated Agent Conventions (Push to main only)
+        if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .style-dna/ GEMINI.md CLAUDE.md AGENTS.md .cursorrules .windsurfrules .github/copilot-instructions.md 2>/dev/null || true
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(style-dna): sync codebase conventions [skip ci]"
+            git push
+          else
+            echo "Conventions already up to date."
+          fi

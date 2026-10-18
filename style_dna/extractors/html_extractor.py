@@ -67,7 +67,7 @@ def extract_html(
 
         # ── Semantic tags ──
         for match in _HTML_TAG.finditer(src):
-            closing, tag = match.groups()
+            _, tag = match.groups()
             tag_lower = tag.lower()
             if tag_lower in _SEMANTIC_TAGS:
                 semantic_tags += 1

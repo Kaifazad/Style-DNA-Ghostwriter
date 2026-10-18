@@ -6,7 +6,6 @@ Uses lexical / regex-based analysis (no Node.js dependency required).
 from __future__ import annotations
 
 import re
-from collections import Counter
 from pathlib import Path
 
 
@@ -37,9 +36,8 @@ _RELATIVE_IMPORT = re.compile(r"""from\s+['"]\.\.?/""")
 _TS_INTERFACE = re.compile(r"^(?:export\s+)?interface\s+\w+", re.MULTILINE)
 _TS_TYPE_ALIAS = re.compile(r"^(?:export\s+)?type\s+\w+\s*=", re.MULTILINE)
 
-# TypeScript: typed params/returns
+# TypeScript: typed params
 _TS_TYPED_PARAM = re.compile(r"\w+\s*:\s*\w+")
-_TS_RETURN_TYPE = re.compile(r"\)\s*:\s*\w+")
 
 # Comment styles
 _JSDOC_COMMENT = re.compile(r"/\*\*[\s\S]*?\*/")

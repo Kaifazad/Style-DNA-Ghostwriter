@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-from collections import Counter
 
 
 def extract_error_handling(trees: list[ast.AST]) -> dict:

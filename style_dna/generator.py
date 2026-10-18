@@ -32,28 +32,37 @@ def generate_code(
     task: str,
     model: str = "claude-sonnet-4-6",
     max_tokens: int = 2000,
+    api_key: str | None = None,
 ) -> str:
     """Generate code for `task`, styled to match `profile`.
 
-    Requires the anthropic Python package and an ANTHROPIC_API_KEY environment
-    variable to be set.
+    Used exclusively by the terminal CLI (`style-dna generate`).
+    The Style DNA MCP server operates 100% locally and does NOT use this function
+    or require any API keys.
+
+    Args:
+        profile: The StyleProfile to condition generation with.
+        task: Description of the code to generate.
+        model: Claude model name.
+        max_tokens: Maximum token length.
+        api_key: Optional Anthropic API key (falls back to ANTHROPIC_API_KEY env var).
     """
     try:
         import anthropic
     except ImportError as e:
         raise ImportError(
-            "The 'anthropic' package is required for generation. "
-            "Install it with: pip install anthropic"
+            "The 'anthropic' package is required for terminal code generation. "
+            "Install it with: pip install 'style-dna-ghostwriter[generate]'"
         ) from e
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
+    resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    if not resolved_key:
         raise RuntimeError(
             "ANTHROPIC_API_KEY environment variable is not set. "
-            "Export it before running generation."
+            "Export it or pass api_key directly before running generation."
         )
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=resolved_key)
     system_prompt = build_system_prompt(profile)
 
     response = client.messages.create(

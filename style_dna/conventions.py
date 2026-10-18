@@ -65,11 +65,23 @@ def write_convention_files(root: Path, profile: StyleProfile) -> list[Path]:
     return written
 
 
-MCP_CONFIG_SNIPPET = """{
+MCP_CONFIG_SNIPPET = """# Claude Code / Cursor / Zed — claude_desktop_config.json or mcp.json
+{
   "mcpServers": {
     "style-dna": {
-      "command": "style-dna",
-      "args": ["mcp"]
+      "command": "uvx",
+      "args": ["style-dna-ghostwriter", "mcp"]
     }
   }
-}"""
+}
+
+# Alternative (if installed locally with pip install -e .):
+# {
+#   "mcpServers": {
+#     "style-dna": {
+#       "command": "style-dna",
+#       "args": ["mcp"]
+#     }
+#   }
+# }
+"""

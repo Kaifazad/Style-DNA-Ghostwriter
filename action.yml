@@ -1,0 +1,155 @@
+name: "Style DNA Ghostwriter"
+description: >
+  Analyze a codebase's real coding conventions (naming, docstrings, typing,
+  error handling, imports, styling) and generate style rules that keep AI
+  agents writing code indistinguishable from the rest of the repository.
+
+author: "Kaifazad"
+
+branding:
+  icon: "code"
+  color: "gray-dark"
+
+inputs:
+  path:
+    description: "Path to the codebase root to analyze (relative to GITHUB_WORKSPACE)."
+    required: false
+    default: "."
+
+  output-profile:
+    description: "Where to save the generated style_profile.json."
+    required: false
+    default: ".style-dna/style_profile.json"
+
+  write-convention-files:
+    description: >
+      If 'true', upsert Style DNA rules into CLAUDE.md, AGENTS.md,
+      GEMINI.md, .cursorrules, .windsurfrules, and
+      .github/copilot-instructions.md so all coding agents read them
+      automatically.
+    required: false
+    default: "true"
+
+  max-files:
+    description: "Maximum number of files to parse per category (0 = unlimited)."
+    required: false
+    default: "500"
+
+  fail-on-empty:
+    description: "Fail the step if no supported source files are found."
+    required: false
+    default: "true"
+
+  python-version:
+    description: "Python version to use when installing style-dna-ghostwriter."
+    required: false
+    default: "3.12"
+
+outputs:
+  profile-path:
+    description: "Absolute path to the saved style_profile.json."
+    value: ${{ steps.analyze.outputs.profile-path }}
+
+  files-analyzed:
+    description: "Total number of source files analyzed."
+    value: ${{ steps.analyze.outputs.files-analyzed }}
+
+  rules-summary:
+    description: "Plain-English summary of the extracted style rules."
+    value: ${{ steps.analyze.outputs.rules-summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install style-dna-ghostwriter
+      shell: bash
+      run: |
+        pip install --quiet "style-dna-ghostwriter[guard]>=0.2.0"
+
+    - name: Analyze codebase
+      id: analyze
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        SDNA_PATH: ${{ inputs.path }}
+        SDNA_OUT: ${{ inputs.output-profile }}
+        SDNA_MAX: ${{ inputs.max-files }}
+        SDNA_FAIL_EMPTY: ${{ inputs.fail-on-empty }}
+        SDNA_WRITE_FILES: ${{ inputs.write-convention-files }}
+      run: |
+        set -e
+
+        MAX_FLAG=""
+        if [ "$SDNA_MAX" != "0" ]; then
+          MAX_FLAG="--max-files $SDNA_MAX"
+        fi
+
+        # Run analysis
+        style-dna analyze "$SDNA_PATH" --out "$SDNA_OUT" $MAX_FLAG || {
+          if [ "$SDNA_FAIL_EMPTY" = "true" ]; then
+            echo "::error::No supported source files found under '$SDNA_PATH'."
+            exit 1
+          fi
+        }
+
+        # Write convention files
+        if [ "$SDNA_WRITE_FILES" = "true" ] && [ -f "$SDNA_OUT" ]; then
+          style-dna init "$SDNA_PATH" || true
+        fi
+
+        # Set outputs
+        ABS_PATH="$(realpath "$SDNA_OUT" 2>/dev/null || echo "$SDNA_OUT")"
+        echo "profile-path=$ABS_PATH" >> "$GITHUB_OUTPUT"
+
+        # Extract file count from profile JSON
+        if [ -f "$SDNA_OUT" ]; then
+          PY_COUNT=$(python -c "import json,sys; d=json.load(open('$SDNA_OUT')); print(d.get('files_analyzed',0)+d.get('web_files_analyzed',0))" 2>/dev/null || echo "0")
+          echo "files-analyzed=$PY_COUNT" >> "$GITHUB_OUTPUT"
+
+          RULES=$(style-dna show "$SDNA_OUT" 2>/dev/null || echo "Profile unavailable")
+          # Multiline output: use delimiter
+          EOF=$(dd if=/dev/urandom bs=15 count=1 2>/dev/null | base64)
+          echo "rules-summary<<$EOF" >> "$GITHUB_OUTPUT"
+          echo "$RULES" >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Annotate job summary
+      if: always()
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        SDNA_OUT: ${{ inputs.output-profile }}
+      run: |
+        if [ -f "$SDNA_OUT" ]; then
+          {
+            echo "## 🧬 Style DNA Profile"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | --- |"
+            python - <<'PYEOF'
+        import json, sys, os
+        path = os.environ.get("SDNA_OUT", ".style-dna/style_profile.json")
+        try:
+            d = json.load(open(path))
+            py = d.get("files_analyzed", 0)
+            web = d.get("web_files_analyzed", 0)
+            print(f"| Python files | {py} |")
+            print(f"| Web files (JS/TS/CSS/HTML) | {web} |")
+            print(f"| Total files analyzed | {py + web} |")
+            if fn := d.get("function_naming"):
+                print(f"| Function naming | `{fn}` |")
+            if ts := d.get("ts_strict_rate"):
+                print(f"| TypeScript strictness | {ts:.0%} |")
+            if sa := d.get("styling_approach"):
+                print(f"| Styling approach | `{sa}` |")
+        except Exception as e:
+            print(f"| Error | {e} |")
+        PYEOF
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi

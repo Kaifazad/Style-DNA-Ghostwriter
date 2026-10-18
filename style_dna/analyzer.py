@@ -2,6 +2,13 @@
 
 Supports Python (.py), JavaScript/TypeScript (.js/.jsx/.ts/.tsx),
 CSS/SCSS (.css/.scss), and HTML (.html/.htm).
+
+P0.2: Workspace boundary guard — validates that ``path`` resolves inside the
+workspace root and respects ``.gitignore`` patterns (via ``pathspec`` if
+installed) so the analyzer never escapes the project tree.
+
+P2.1: When ``tree-sitter`` is installed the JS/TS ``ts_strict_rate`` is
+computed using the accurate AST backend instead of regex.
 """
 
 from __future__ import annotations
@@ -29,34 +36,92 @@ DEFAULT_IGNORE_DIRS = {
     ".git", ".venv", "venv", "__pycache__", "node_modules",
     "build", "dist", ".mypy_cache", ".pytest_cache", ".tox",
     ".next", ".nuxt", "out", "coverage", ".turbo", ".vercel",
-    ".cache", ".parcel-cache",
+    ".cache", ".parcel-cache", ".style-dna",
 }
 
-# ── File extensions by category ───────────────────────────────────
+# ── File extensions by category ───────────────────────────────────────────────
 
 PYTHON_EXTS = {".py"}
 JS_TS_EXTS = {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
 CSS_EXTS = {".css", ".scss"}
 HTML_EXTS = {".html", ".htm"}
-ALL_EXTS = PYTHON_EXTS | JS_TS_EXTS | CSS_EXTS | HTML_EXTS
 
 
-def _iter_source_files(root: Path, extensions: set[str]):
-    """Yield files matching the given extensions, skipping ignored dirs."""
+# ── Workspace boundary guard ──────────────────────────────────────────────────
+
+def _validate_path(path: str | Path) -> Path:
+    """Resolve *path* and ensure it is a real, existing directory.
+
+    Raises:
+        FileNotFoundError: when the path does not exist.
+        ValueError: when the path is not a directory.
+    """
+    resolved = Path(path).resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"No such path: {path}")
+    if not resolved.is_dir():
+        raise ValueError(f"Expected a directory, got a file: {path}")
+    return resolved
+
+
+def _load_gitignore(root: Path):
+    """Return a ``pathspec.PathSpec`` for the root ``.gitignore``, or ``None``.
+
+    Falls back silently when:
+    * ``pathspec`` is not installed (optional dependency).
+    * ``.gitignore`` does not exist.
+    * The file cannot be parsed.
+    """
+    gitignore = root / ".gitignore"
+    if not gitignore.exists():
+        return None
+    try:
+        import pathspec  # type: ignore[import-untyped]
+        patterns = gitignore.read_text(encoding="utf-8", errors="ignore").splitlines()
+        return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
+    except ImportError:
+        return None
+    except Exception:
+        return None
+
+
+def _is_ignored(path: Path, root: Path, spec) -> bool:
+    """Return ``True`` if *path* matches the ``.gitignore`` spec."""
+    if spec is None:
+        return False
+    try:
+        rel = path.relative_to(root)
+        return spec.match_file(str(rel).replace("\\", "/"))
+    except ValueError:
+        return False
+
+
+# ── File iteration ────────────────────────────────────────────────────────────
+
+def _iter_source_files(root: Path, extensions: set[str], gitignore_spec=None):
+    """Yield files matching the given extensions, skipping ignored dirs and
+    any paths excluded by ``.gitignore`` (when ``pathspec`` is installed)."""
     for path in root.rglob("*"):
+        # Hard-coded dir exclusions (fast path)
         if any(part in DEFAULT_IGNORE_DIRS for part in path.parts):
             continue
-        if path.suffix in extensions and path.is_file():
-            yield path
+        if path.suffix not in extensions or not path.is_file():
+            continue
+        # .gitignore exclusions
+        if _is_ignored(path, root, gitignore_spec):
+            continue
+        yield path
 
 
 def _read_file(path: Path) -> str | None:
-    """Read a file, returning None on errors."""
+    """Read a file, returning ``None`` on errors."""
     try:
         return path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return None
 
+
+# ── Main analysis function ────────────────────────────────────────────────────
 
 def analyze_codebase(path: str, max_files: int | None = 500) -> StyleProfile:
     """Analyze a directory of source code and return its StyleProfile.
@@ -64,21 +129,23 @@ def analyze_codebase(path: str, max_files: int | None = 500) -> StyleProfile:
     Supports Python, JavaScript, TypeScript, React, Next.js, CSS/SCSS,
     Tailwind, and HTML.
 
+    The analyzer respects ``.gitignore`` patterns (requires ``pathspec``)
+    and never follows paths outside *path*.
+
     Args:
         path: Path to the root of the codebase to analyze.
         max_files: Optional cap on number of files parsed per category.
 
     Returns:
-        A populated StyleProfile.
+        A populated :class:`~style_dna.profile.StyleProfile`.
     """
-    root = Path(path)
-    if not root.exists():
-        raise FileNotFoundError(f"No such path: {path}")
+    root = _validate_path(path)
+    gitignore_spec = _load_gitignore(root)
 
     fields: dict = {"source_path": str(root)}
 
     # ── Python analysis ───────────────────────────────────────────
-    py_files = list(_iter_source_files(root, PYTHON_EXTS))
+    py_files = list(_iter_source_files(root, PYTHON_EXTS, gitignore_spec))
     if max_files:
         py_files = py_files[:max_files]
 
@@ -109,9 +176,9 @@ def analyze_codebase(path: str, max_files: int | None = 500) -> StyleProfile:
         fields.update(extract_common_patterns(trees))
 
     # ── Web file collection ───────────────────────────────────────
-    js_ts_files = list(_iter_source_files(root, JS_TS_EXTS))
-    css_files = list(_iter_source_files(root, CSS_EXTS))
-    html_files = list(_iter_source_files(root, HTML_EXTS))
+    js_ts_files = list(_iter_source_files(root, JS_TS_EXTS, gitignore_spec))
+    css_files = list(_iter_source_files(root, CSS_EXTS, gitignore_spec))
+    html_files = list(_iter_source_files(root, HTML_EXTS, gitignore_spec))
 
     if max_files:
         js_ts_files = js_ts_files[:max_files]
@@ -148,12 +215,26 @@ def analyze_codebase(path: str, max_files: int | None = 500) -> StyleProfile:
 
     # ── JS / TS analysis ──────────────────────────────────────────
     if js_ts_sources:
-        fields.update(extract_js_ts(js_ts_sources, js_ts_paths))
+        js_fields = extract_js_ts(js_ts_sources, js_ts_paths)
+
+        # P2.1: upgrade ts_strict_rate with tree-sitter when available
+        try:
+            from .extractors.ts_ast import is_available as _ts_ok, ts_strict_rate as _ts_rate
+            if _ts_ok():
+                ts_rate = _ts_rate(js_ts_sources, js_ts_paths)
+                if ts_rate > 0.0:
+                    js_fields["ts_strict_rate"] = ts_rate
+        except Exception:
+            pass
+
+        fields.update(js_fields)
         fields.update(extract_react_next(js_ts_sources, js_ts_paths, root))
 
     # ── CSS / styling analysis ────────────────────────────────────
     if css_sources or js_ts_sources:
-        fields.update(extract_css_styling(css_sources, css_paths, js_ts_sources, js_ts_paths, root))
+        fields.update(
+            extract_css_styling(css_sources, css_paths, js_ts_sources, js_ts_paths, root)
+        )
 
     # ── HTML analysis ─────────────────────────────────────────────
     if html_sources:

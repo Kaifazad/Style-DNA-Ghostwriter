@@ -8,7 +8,6 @@ and color format preferences.
 from __future__ import annotations
 
 import re
-from collections import Counter
 from pathlib import Path
 
 
@@ -17,8 +16,7 @@ from pathlib import Path
 # CSS class selectors in .css/.scss files
 _CSS_CLASS_SELECTOR = re.compile(r"\.([a-zA-Z_][\w-]*)\s*[{,:]")
 
-# BEM pattern: block__element--modifier
-_BEM_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:__[a-z][a-z0-9]*)?(?:--[a-z][a-z0-9]*)?$")
+# Class naming patterns
 _KEBAB_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)+$")
 _CAMEL_PATTERN = re.compile(r"^[a-z][a-zA-Z0-9]*$")
 
@@ -34,7 +32,6 @@ _RGB_COLOR = re.compile(r"rgba?\s*\(")
 # Tailwind detection: className with utility-like strings
 _TAILWIND_CLASSNAME = re.compile(r'className\s*=\s*[{"\'].*?(?:flex|grid|p-|m-|w-|h-|text-|bg-|rounded|shadow|border)')
 _TAILWIND_IMPORT = re.compile(r"""@tailwind\s+(?:base|components|utilities)""")
-_TAILWIND_CONFIG = re.compile(r"tailwind\.config\.")
 
 # CSS Modules: import styles from '*.module.css'
 _CSS_MODULE_IMPORT = re.compile(r"""import\s+\w+\s+from\s+['"][^'"]*\.module\.(?:css|scss|sass)['"]""")

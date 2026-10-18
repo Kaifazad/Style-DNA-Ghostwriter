@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Style DNA — Codebase Conventions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-base: #09090b;
+      --bg-surface: #121215;
+      --bg-elevated: #18181b;
+      --bg-hover: #222226;
+      --border-subtle: #27272a;
+      --border-strong: #3f3f46;
+      --text-primary: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --text-tertiary: #71717a;
+      --accent-green: #10b981;
+      --accent-blue: #3b82f6;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', "SF Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top App Bar */
+    .topbar {
+      height: 56px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-primary);
+    }
+
+    .brand-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .nav-project {
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .nav-divider {
+      color: var(--border-strong);
+    }
+
+    .nav-sub {
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+
+    .btn:hover {
+      background: var(--bg-elevated);
+      border-color: var(--border-strong);
+    }
+
+    .btn-primary {
+      background: #f4f4f5;
+      color: #09090b;
+      border-color: #f4f4f5;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background: #e4e4e7;
+      border-color: #e4e4e7;
+    }
+
+    /* Main Container */
+    .app-main {
+      max-width: 1120px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 40px 32px 80px;
+      flex: 1;
+    }
+
+    /* Page Header */
+    .header-section {
+      margin-bottom: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 24px;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    .page-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .header-meta {
+      display: flex;
+      gap: 16px;
+    }
+
+    .header-meta-item {
+      text-align: right;
+    }
+
+    .meta-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    .meta-val {
+      font-size: 13px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+    }
+
+    /* Metric Summary Grid */
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    .metric-cell {
+      background: var(--bg-surface);
+      padding: 20px 24px;
+      transition: background 0.15s;
+    }
+
+    .metric-cell:hover {
+      background: var(--bg-elevated);
+    }
+
+    .metric-header {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .metric-number {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      font-family: var(--font-sans);
+      color: var(--text-primary);
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* Tech Stack Pills */
+    .stack-section {
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .stack-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stack-pill {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Tab Navigation */
+    .tabs-nav {
+      display: flex;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 24px;
+      gap: 24px;
+    }
+
+    .tab-item {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 10px 0;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab-item:hover {
+      color: var(--text-secondary);
+    }
+
+    .tab-item.active {
+      color: var(--text-primary);
+      border-bottom-color: var(--text-primary);
+    }
+
+    /* Data Table / Row View */
+    .conventions-table-container {
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      background: var(--bg-surface);
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    .conventions-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .conventions-table th {
+      background: #0f0f12;
+      padding: 12px 20px;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .conventions-table td {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    .conventions-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .conventions-table tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .col-feature {
+      font-weight: 500;
+      color: var(--text-primary);
+      width: 220px;
+    }
+
+    .col-category {
+      width: 160px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .col-pattern {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #93c5fd;
+      background: rgba(59, 130, 246, 0.08);
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .col-desc {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    /* Code View Section */
+    .editor-card {
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      background: #0c0c0e;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    .editor-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .editor-label {
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    pre.raw-code {
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #d4d4d8;
+      line-height: 1.6;
+      overflow-x: auto;
+      max-height: 480px;
+    }
+
+    /* Minimal Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #27272a;
+      border: 1px solid var(--border-strong);
+      color: #f4f4f5;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      transform: translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 999;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .icon-svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    @media (max-width: 768px) {
+      .metrics-bar {
+        grid-template-columns: 1fr 1fr;
+      }
+      .header-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+      }
+      .header-meta-item {
+        text-align: left;
+      }
+      .topbar {
+        padding: 0 16px;
+      }
+      .app-main {
+        padding: 24px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Clean Minimalist Header -->
+  <header class="topbar">
+    <div class="brand-section">
+      <div class="brand-logo">
+        <svg class="icon-svg" style="width: 18px; height: 18px;" viewBox="0 0 24 24">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+      </div>
+      <div class="brand-nav">
+        <span class="nav-project">Style DNA</span>
+        <span class="nav-divider">/</span>
+        <span class="nav-sub" id="topNavPath">examples/sample_web_repo</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span>Profile Synced</span>
+      </div>
+      <button class="btn" onclick="fetchProfile()" title="Reload from style_profile.json">
+        <svg class="icon-svg" viewBox="0 0 24 24">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span>Sync</span>
+      </button>
+      <button class="btn btn-primary" onclick="copyPromptRules()">
+        <svg class="icon-svg" viewBox="0 0 24 24">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>Copy Prompt Rules</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Application Content -->
+  <main class="app-main">
+    <!-- Header -->
+    <section class="header-section">
+      <div>
+        <h1 class="page-title">Extracted Style Profile</h1>
+        <p class="page-subtitle">Deterministic code conventions learned from codebase AST and syntax patterns.</p>
+      </div>
+      <div class="header-meta">
+        <div class="header-meta-item">
+          <div class="meta-title">Files Analyzed</div>
+          <div class="meta-val" id="metaFileCount">10 source files</div>
+        </div>
+        <div class="header-meta-item">
+          <div class="meta-title">Stack Format</div>
+          <div class="meta-val" id="metaStack">Web / Next.js</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Metrics Grid -->
+    <section class="metrics-bar">
+      <div class="metric-cell">
+        <div class="metric-header">Total Files</div>
+        <div class="metric-number" id="mTotalFiles">10</div>
+        <div class="metric-sub">0 Python, 10 Web</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-header">TypeScript Coverage</div>
+        <div class="metric-number" id="mStrictness">85%</div>
+        <div class="metric-sub">Typed parameters & returns</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-header">Semantic HTML</div>
+        <div class="metric-number" id="mSemantic">100%</div>
+        <div class="metric-sub">Structured tag compliance</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-header">Component Syntax</div>
+        <div class="metric-number" id="mCmpSyntax">Arrow</div>
+        <div class="metric-sub">const Component = () =></div>
+      </div>
+    </section>
+
+    <!-- Tech Stack Strip -->
+    <section class="stack-section">
+      <span class="stack-label">Detected Stack:</span>
+      <div id="stackPills" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+    </section>
+
+    <!-- Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-item active" onclick="setTab('conventions', this)">Conventions Directory</button>
+      <button class="tab-item" onclick="setTab('prompt', this)">Prompt Rules (Markdown)</button>
+      <button class="tab-item" onclick="setTab('raw', this)">Raw Profile (JSON)</button>
+    </nav>
+
+    <!-- Section 1: Conventions Directory Table -->
+    <section id="paneConventions">
+      <div class="conventions-table-container">
+        <table class="conventions-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Category</th>
+              <th>Extracted Convention</th>
+              <th>Rule Description</th>
+            </tr>
+          </thead>
+          <tbody id="conventionsTableBody">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 2: Markdown Rules View -->
+    <section id="panePrompt" style="display: none;">
+      <div class="editor-card">
+        <div class="editor-toolbar">
+          <div class="editor-label">
+            <svg class="icon-svg" viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>rules.md</span>
+          </div>
+          <button class="btn" onclick="copyPromptRules()">
+            <svg class="icon-svg" viewBox="0 0 24 24">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Copy</span>
+          </button>
+        </div>
+        <pre class="raw-code" id="rulesContent">Loading...</pre>
+      </div>
+    </section>
+
+    <!-- Section 3: Raw JSON View -->
+    <section id="paneRaw" style="display: none;">
+      <div class="editor-card">
+        <div class="editor-toolbar">
+          <div class="editor-label">
+            <svg class="icon-svg" viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span>style_profile.json</span>
+          </div>
+          <button class="btn" onclick="copyRawJson()">
+            <svg class="icon-svg" viewBox="0 0 24 24">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Copy</span>
+          </button>
+        </div>
+        <pre class="raw-code" id="jsonContent">Loading...</pre>
+      </div>
+    </section>
+  </main>
+
+  <!-- Minimal Toast Notification -->
+  <div class="toast" id="toast">
+    <svg class="icon-svg" style="color: var(--accent-green);" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    <span id="toastText">Copied to clipboard</span>
+  </div>
+
+  <script>
+    let profile = {
+      "source_path": "examples\\sample_web_repo",
+      "files_analyzed": 0,
+      "web_files_analyzed": 10,
+      "function_naming": "unknown",
+      "variable_naming": "unknown",
+      "private_prefix_rate": 0.0,
+      "getter_setter_style": "unknown",
+      "docstring_style": "none",
+      "docstring_coverage": 0.0,
+      "type_hint_coverage": 0.0,
+      "error_handling_pattern": "unknown",
+      "uses_custom_exceptions": false,
+      "logs_on_exception_rate": 0.0,
+      "quote_style": "unknown",
+      "avg_line_length": 0.0,
+      "max_observed_line_length": 0,
+      "indent_style": "spaces_4",
+      "import_style": "unknown",
+      "prefers_relative_imports": false,
+      "avg_function_length": 0.0,
+      "common_decorators": [],
+      "common_patterns": [],
+      "js_quote_style": "single",
+      "js_semicolons": "mixed",
+      "js_function_style": "arrow",
+      "js_export_style": "named",
+      "js_import_alias_style": "alias_at",
+      "ts_type_style": "interface",
+      "ts_strict_rate": 0.85,
+      "nextjs_router": "app_router",
+      "react_component_style": "arrow",
+      "react_component_naming": "PascalCase",
+      "react_use_client_rate": 0.25,
+      "react_use_server_rate": 0.0,
+      "react_hooks_patterns": ["useCartStore", "useProducts"],
+      "react_state_management": "zustand",
+      "web_frameworks": ["Next.js", "React", "React DOM", "Tailwind CSS", "TypeScript"],
+      "styling_approach": "tailwind",
+      "css_class_naming": "unknown",
+      "css_variables_usage": true,
+      "css_color_format": "hsl",
+      "html_indent_style": "spaces_4",
+      "html_attr_quote_style": "double",
+      "html_semantic_usage": 1.0,
+      "js_comment_style": "jsdoc"
+    };
+
+    async function fetchProfile() {
+      try {
+        const res = await fetch('style_profile.json?t=' + Date.now());
+        if (res.ok) {
+          profile = await res.json();
+          showToast('Synchronized with style_profile.json');
+        }
+      } catch (e) {
+        console.warn('Loading fallback profile data', e);
+      }
+      render();
+    }
+
+    function render() {
+      document.getElementById('topNavPath').textContent = profile.source_path || 'Codebase';
+      const total = (profile.files_analyzed || 0) + (profile.web_files_analyzed || 0);
+      document.getElementById('metaFileCount').textContent = `${total} source files`;
+      document.getElementById('mTotalFiles').textContent = total;
+      document.getElementById('mStrictness').textContent = `${Math.round((profile.ts_strict_rate || 0) * 100)}%`;
+      document.getElementById('mSemantic').textContent = `${Math.round((profile.html_semantic_usage || 0) * 100)}%`;
+      document.getElementById('mCmpSyntax').textContent = (profile.react_component_style || 'Arrow').toUpperCase();
+
+      // Stack pills
+      const pillContainer = document.getElementById('stackPills');
+      pillContainer.innerHTML = '';
+      (profile.web_frameworks || []).forEach(fw => {
+        const pill = document.createElement('span');
+        pill.className = 'stack-pill';
+        pill.textContent = fw;
+        pillContainer.appendChild(pill);
+      });
+
+      // Table rows
+      const tbody = document.getElementById('conventionsTableBody');
+      tbody.innerHTML = '';
+
+      const conventions = [
+        {
+          feature: 'String Quotes',
+          category: 'JS / TS',
+          pattern: profile.js_quote_style === 'single' ? "'single'" : '"double"',
+          desc: 'Primary quote format across all JavaScript & TypeScript source files.'
+        },
+        {
+          feature: 'Function Syntax',
+          category: 'JS / TS',
+          pattern: profile.js_function_style === 'arrow' ? 'const fn = () => {}' : 'function fn() {}',
+          desc: 'Arrow functions preferred for function and component declarations.'
+        },
+        {
+          feature: 'Import Path Style',
+          category: 'JS / TS',
+          pattern: profile.js_import_alias_style === 'alias_at' ? '@/...' : './...',
+          desc: 'Root path aliases (@/...) enforced over relative directory traversals.'
+        },
+        {
+          feature: 'Object Type Declarations',
+          category: 'TypeScript',
+          pattern: profile.ts_type_style === 'interface' ? 'interface Model {}' : 'type Model = {}',
+          desc: 'Standardized TypeScript type shape declaration convention.'
+        },
+        {
+          feature: 'Next.js Routing',
+          category: 'React / Next.js',
+          pattern: profile.nextjs_router === 'app_router' ? 'app/ (App Router)' : 'pages/',
+          desc: 'Next.js 14 App Router layout, metadata, and routing structure.'
+        },
+        {
+          feature: 'State Management',
+          category: 'React',
+          pattern: profile.react_state_management || 'none',
+          desc: 'Client-side reactive store pattern (Zustand atomic stores).'
+        },
+        {
+          feature: 'Domain Hook Patterns',
+          category: 'React',
+          pattern: (profile.react_hooks_patterns || []).join(', ') || 'None',
+          desc: 'Isolated custom hooks managing asynchronous and global operations.'
+        },
+        {
+          feature: 'Styling Architecture',
+          category: 'CSS / Styling',
+          pattern: profile.styling_approach === 'tailwind' ? 'Tailwind CSS utility classes' : profile.styling_approach,
+          desc: 'Utility classnames preferred over decoupled stylesheets.'
+        },
+        {
+          feature: 'Color System',
+          category: 'CSS / Styling',
+          pattern: profile.css_color_format ? `${profile.css_color_format.toUpperCase()} variables` : 'HSL',
+          desc: 'Semantic CSS custom properties specified in HSL format.'
+        },
+        {
+          feature: 'Semantic Markup',
+          category: 'HTML',
+          pattern: `${Math.round((profile.html_semantic_usage || 0) * 100)}% semantic tags`,
+          desc: 'Strict structural elements (<header>, <main>, <section>) favored over div soup.'
+        }
+      ];
+
+      conventions.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="col-feature">${item.feature}</td>
+          <td class="col-category">${item.category}</td>
+          <td><span class="col-pattern">${item.pattern}</span></td>
+          <td class="col-desc">${item.desc}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Rules Markdown
+      const rules = buildRulesText();
+      document.getElementById('rulesContent').textContent = rules;
+      document.getElementById('jsonContent').textContent = JSON.stringify(profile, null, 2);
+    }
+
+    function buildRulesText() {
+      let r = [];
+      r.push("## Web Conventions");
+      if (profile.web_frameworks && profile.web_frameworks.length) {
+        r.push(`- Detected frameworks/tools: ${profile.web_frameworks.join(', ')}.`);
+      }
+      r.push("\n### JavaScript / TypeScript");
+      if (profile.js_quote_style) r.push(`- Use ${profile.js_quote_style} quotes for JS/TS strings.`);
+      if (profile.js_function_style) r.push(`- Prefer ${profile.js_function_style} functions (\`const fn = () => {}\`).`);
+      if (profile.js_export_style) r.push(`- Prefer ${profile.js_export_style} exports.`);
+      if (profile.js_import_alias_style === 'alias_at') r.push("- Use path aliases (`@/...`) for imports instead of deep relative paths.");
+      if (profile.ts_type_style) r.push(`- Prefer \`${profile.ts_type_style}\` over \`${profile.ts_type_style === 'interface' ? 'type' : 'interface'}\` for object shapes in TypeScript.`);
+      if (profile.ts_strict_rate) r.push(`- TypeScript typing coverage: ~${Math.round(profile.ts_strict_rate * 100)}% of function signatures are typed.`);
+      if (profile.js_comment_style) r.push(`- Comment style: ${profile.js_comment_style === 'jsdoc' ? 'JSDoc (`/** ... */`)' : profile.js_comment_style}.`);
+      r.push("\n### React / Next.js");
+      if (profile.nextjs_router === 'app_router') r.push("- Next.js routing: App Router (`app/`).");
+      if (profile.react_component_naming) r.push(`- Component file naming: ${profile.react_component_naming}.`);
+      if (profile.react_use_client_rate) r.push(`- ~${Math.round(profile.react_use_client_rate * 100)}% of components use \`'use client'\` directive.`);
+      if (profile.react_hooks_patterns && profile.react_hooks_patterns.length) {
+        r.push(`- Custom hook patterns in use: ${profile.react_hooks_patterns.join(', ')}.`);
+      }
+      if (profile.react_state_management) r.push(`- State management: ${profile.react_state_management}.`);
+      r.push("\n### CSS / Styling");
+      if (profile.styling_approach) r.push(`- Styling approach: ${profile.styling_approach === 'tailwind' ? 'Tailwind CSS utility classes' : profile.styling_approach}.`);
+      if (profile.css_variables_usage) r.push("- Uses CSS custom properties (`var(--token-name)`) for design tokens.");
+      if (profile.css_color_format) r.push(`- Preferred color format: ${profile.css_color_format.toUpperCase()}.`);
+      r.push("\n### HTML");
+      if (profile.html_indent_style) r.push(`- HTML indentation: ${profile.html_indent_style.replace('_', ' ')}.`);
+      if (profile.html_attr_quote_style) r.push(`- HTML attribute quotes: ${profile.html_attr_quote_style}.`);
+      if (profile.html_semantic_usage) r.push(`- Uses semantic HTML elements (~${Math.round(profile.html_semantic_usage * 100)}% semantic tag rate). Prefer <header>, <main>, <section>, <nav>, etc.`);
+      return r.join('\n');
+    }
+
+    function setTab(tab, btn) {
+      document.querySelectorAll('.tab-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.getElementById('paneConventions').style.display = tab === 'conventions' ? 'block' : 'none';
+      document.getElementById('panePrompt').style.display = tab === 'prompt' ? 'block' : 'none';
+      document.getElementById('paneRaw').style.display = tab === 'raw' ? 'block' : 'none';
+    }
+
+    function copyPromptRules() {
+      const text = document.getElementById('rulesContent').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Prompt rules copied to clipboard');
+      });
+    }
+
+    function copyRawJson() {
+      const text = document.getElementById('jsonContent').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('JSON copied to clipboard');
+      });
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastText').textContent = text;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2000);
+    }
+
+    fetchProfile();
+  </script>
+</body>
+</html>
