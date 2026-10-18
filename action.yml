@@ -69,7 +69,13 @@ runs:
     - name: Install style-dna-ghostwriter
       shell: bash
       run: |
-        pip install --quiet "style-dna-ghostwriter[guard]>=0.2.0"
+        if [ -n "$GITHUB_ACTION_PATH" ] && [ -f "$GITHUB_ACTION_PATH/pyproject.toml" ]; then
+          pip install --quiet "${GITHUB_ACTION_PATH}[guard]"
+        elif [ -f "pyproject.toml" ]; then
+          pip install --quiet ".[guard]"
+        else
+          pip install --quiet "style-dna-ghostwriter[guard]" || pip install --quiet "style-dna-ghostwriter"
+        fi
 
     - name: Analyze codebase
       id: analyze
