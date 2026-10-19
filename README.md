@@ -208,17 +208,20 @@ Automatically extract and verify conventions in CI or sync agent instructions on
 ```
 style-dna-ghostwriter/
 ├── style_dna/
-│   ├── analyzer.py         # multi-language codebase scanner
-│   ├── profile.py          # StyleProfile data model + save/load + multi-stack rules
+│   ├── analyzer.py         # multi-language scanner + workspace boundary guard
+│   ├── profile.py          # StyleProfile model + scoped rules + freshness tracking
+│   ├── verifier.py         # AST & regex style convention checker & linter
+│   ├── monorepo.py         # workspace & multi-package convention analyzer
 │   ├── generator.py        # profile -> system prompt -> Claude API call
-│   ├── mcp_server.py       # MCP server exposing tools for agents
+│   ├── mcp_server.py       # MCP server (tools, scoped resources, prompts)
 │   ├── conventions.py      # upserts rules into CLAUDE.md/AGENTS.md/.cursorrules/etc.
-│   ├── cli.py              # `style-dna` CLI (init, analyze, show, generate, mcp)
+│   ├── cli.py              # CLI (init, analyze, show, check, hook, monorepo, mcp)
+│   ├── __main__.py         # package entrypoint for python -m style_dna
 │   └── extractors/         # Python, JS/TS, React/Next.js, CSS/Tailwind, HTML
 ├── examples/
 │   ├── sample_repo/        # Python test fixture
 │   └── sample_web_repo/    # Next.js 14 + React TSX + Tailwind test fixture
-└── tests/                  # Complete test suite
+└── tests/                  # Complete test suite (153 tests)
 ```
 
 ---
@@ -248,7 +251,16 @@ style-dna init
 # Inspect codebase style rules:
 style-dna analyze ./my_repo --out style_profile.json
 style-dna show style_profile.json
-style-dna show style_profile.json --format json
+style-dna show style_profile.json --scope compact     # dense, token-saving summary
+
+# Verify code adheres to extracted conventions:
+style-dna check ./src/App.tsx
+
+# Install automatic pre-commit git hook:
+style-dna hook install
+
+# Analyze monorepos with per-package rules:
+style-dna monorepo . --out .style-dna/packages/
 
 # Direct generation (requires ANTHROPIC_API_KEY):
 export ANTHROPIC_API_KEY=sk-...
