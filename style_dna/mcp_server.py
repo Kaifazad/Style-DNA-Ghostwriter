@@ -14,6 +14,11 @@ explicit ``analyze_repo`` call required on every session.
 
 P1.2: Adds ``check_code_style`` tool so agents can verify generated code
 against the extracted conventions before presenting it to the user.
+
+Upgrades:
+- Scoped Resources: ``style-dna://rules/python``, ``style-dna://rules/web``,
+  and ``style-dna://rules/compact`` to eliminate context-window token waste.
+- Stale Profile Detection: Alerts when a profile was generated >30 days ago.
 """
 
 import json
@@ -45,8 +50,13 @@ def _analyze_repo_impl(path: str = ".", save: bool = True, force: bool = False) 
     cached = Path(path) / DEFAULT_PROFILE_PATH
     if not force and cached.exists():
         profile = StyleProfile.load(cached)
+        advisory = (
+            "[ADVISORY] Style profile is >30 days old. Run with force=True to re-sync.\n\n"
+            if profile.is_stale(30)
+            else ""
+        )
         return (
-            f"Loaded cached profile from '{cached}' "
+            f"{advisory}Loaded cached profile from '{cached}' "
             f"({profile.total_files_analyzed} files analyzed).\n\n"
             f"{profile.as_prompt_rules()}"
         )
@@ -69,12 +79,18 @@ def _analyze_repo_impl(path: str = ".", save: bool = True, force: bool = False) 
     )
 
 
-def _get_style_rules_impl(path: str = ".") -> str:
+def _get_style_rules_impl(path: str = ".", scope: str = "all") -> str:
     """Core implementation for get_style_rules."""
     cached = Path(path) / DEFAULT_PROFILE_PATH
+    advisory = ""
     if cached.exists():
         profile = StyleProfile.load(cached)
-        return profile.as_prompt_rules()
+        if profile.is_stale(30):
+            advisory = (
+                "[ADVISORY] Style profile is >30 days old. "
+                "Run 'refresh_style_profile' to re-sync with recent code.\n\n"
+            )
+        return advisory + profile.as_prompt_rules(scope=scope)
 
     profile = analyze_codebase(path)
     if profile.total_files_analyzed == 0:
@@ -82,7 +98,7 @@ def _get_style_rules_impl(path: str = ".") -> str:
             f"No supported source files found under '{path}'. "
             "No style rules available."
         )
-    return profile.as_prompt_rules()
+    return profile.as_prompt_rules(scope=scope)
 
 
 def _refresh_style_profile_impl(path: str = ".") -> str:
@@ -109,17 +125,23 @@ def _check_code_style_impl(code: str, path: str = ".", language: str = "auto") -
             "Run analyze_repo first to extract conventions."
         )
 
+    advisory = (
+        "[ADVISORY] Cached profile is >30 days old; verify against current patterns.\n\n"
+        if profile.is_stale(30)
+        else ""
+    )
+
     violations = check_code_style(code, profile, language=language)
 
     if not violations:
-        return "✓ No style violations found. Code matches repo conventions."
+        return f"{advisory}No style violations found. Code matches repo conventions."
 
     lines = [
-        f"Found {len(violations)} style violation(s):\n"
+        f"{advisory}Found {len(violations)} style violation(s):\n"
     ]
     for v in violations:
         loc = f"Line {v.line}" if v.line > 0 else "File"
-        lines.append(f"  [{v.severity.upper()}] {loc} — {v.rule}: {v.message}")
+        lines.append(f"  [{v.severity.upper()}] {loc} - {v.rule}: {v.message}")
 
     return "\n".join(lines)
 
@@ -127,49 +149,21 @@ def _check_code_style_impl(code: str, path: str = ".", language: str = "auto") -
 # ── Standalone callable wrappers (importable without MCP) ────────────────────
 
 def analyze_repo(path: str = ".", save: bool = True, force: bool = False) -> str:
-    """Analyze a codebase's real coding conventions and return them as rules.
-
-    Args:
-        path: Path to the codebase root to analyze. Defaults to cwd.
-        save: If true, saves the profile to .style-dna/style_profile.json.
-        force: If true, re-analyzes even when a cached profile already exists.
-
-    Returns:
-        Plain-English style rules extracted from real source examples.
-    """
     return _analyze_repo_impl(path=path, save=save, force=force)
 
 
-def get_style_rules(path: str = ".") -> str:
-    """Get the style rules for a codebase, using a cached profile if available.
-
-    Args:
-        path: Path to the codebase root.
-
-    Returns:
-        Plain-English style rules to follow when writing new code in this repo.
-    """
-    return _get_style_rules_impl(path=path)
+def get_style_rules(path: str = ".", scope: str = "all") -> str:
+    return _get_style_rules_impl(path=path, scope=scope)
 
 
 def refresh_style_profile(path: str = ".") -> str:
-    """Re-analyze a codebase and overwrite its cached style profile.
-
-    Args:
-        path: Path to the codebase root.
-
-    Returns:
-        Confirmation message with the updated rules.
-    """
     return _refresh_style_profile_impl(path=path)
 
 
 # ── MCP server builder ────────────────────────────────────────────────────────
 
 def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
-    """Import FastMCP and register all tools, resources, and prompts.
-    Called once inside run_server().
-    """
+    """Import FastMCP and register all tools, resources, and prompts."""
     from mcp.server.fastmcp import FastMCP  # deferred: only required with [mcp]
 
     mcp = FastMCP(
@@ -195,8 +189,7 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
         }
     )
     def analyze_repo(path: str = ".", save: bool = True, force: bool = False) -> str:
-        """Analyze a codebase's real coding conventions (naming, docstrings,
-        error handling, typing, formatting, imports) and return them as rules.
+        """Analyze a codebase's real coding conventions and return them as rules.
 
         Args:
             path: Path to the codebase root to analyze. Defaults to the current directory.
@@ -216,17 +209,18 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
             "openWorldHint": False,
         }
     )
-    def get_style_rules(path: str = ".") -> str:
+    def get_style_rules(path: str = ".", scope: str = "all") -> str:
         """Get the style rules for a codebase, using a cached profile if one
         exists at .style-dna/style_profile.json, otherwise analyzing fresh.
 
         Args:
             path: Path to the codebase root.
+            scope: "all" (default), "python", "web", or "compact" (token-dense summary).
 
         Returns:
             Plain-English style rules to follow when writing new code in this repo.
         """
-        return _get_style_rules_impl(path=path)
+        return _get_style_rules_impl(path=path, scope=scope)
 
     @mcp.tool(
         annotations={
@@ -238,8 +232,7 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
     )
     def refresh_style_profile(path: str = ".") -> str:
         """Re-analyze a codebase and overwrite its cached style profile.
-        Call this after significant new code has been merged, so the learned
-        conventions stay current.
+        Call this after significant new code has been merged.
 
         Args:
             path: Path to the codebase root.
@@ -265,8 +258,6 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
         """Verify that a code snippet matches this repo's extracted conventions.
 
         Run this *after* generating code and *before* presenting it to the user.
-        It checks naming, type hints, docstrings, quote style, semicolons,
-        function style, export style, and import aliases.
 
         Args:
             code: The code snippet to check (Python, JS, TS, TSX, or JSX).
@@ -278,17 +269,11 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
         """
         return _check_code_style_impl(code=code, path=path, language=language)
 
-    # ── Resources (P1.1) ──────────────────────────────────────────
-    # Resources are passively attached to every agent context — the LLM sees
-    # them without having to explicitly call a tool.
+    # ── Resources (P1.1 & Scoped Resources) ────────────────────────
 
     @mcp.resource("style-dna://profile")
     def resource_profile() -> str:
-        """Full style profile JSON for the current workspace.
-
-        Passively provides the raw structured profile so the agent can
-        reason about any convention field without calling analyze_repo.
-        """
+        """Full style profile JSON for the current workspace."""
         try:
             cached = Path(".") / DEFAULT_PROFILE_PATH
             if cached.exists():
@@ -300,33 +285,39 @@ def _build_mcp() -> "FastMCP":  # type: ignore[name-defined]  # noqa: F821
 
     @mcp.resource("style-dna://rules")
     def resource_rules() -> str:
-        """Plain-English style rules for the current workspace.
+        """Full plain-English style rules for the current workspace."""
+        return _get_style_rules_impl(path=".", scope="all")
 
-        This is the same text that analyze_repo returns, but exposed as a
-        passive MCP resource so it is always in the agent's context window.
-        Use this instead of calling get_style_rules every session.
-        """
-        return _get_style_rules_impl(path=".")
+    @mcp.resource("style-dna://rules/python")
+    def resource_rules_python() -> str:
+        """Python-specific style rules only (saves context tokens)."""
+        return _get_style_rules_impl(path=".", scope="python")
 
-    # ── Prompt (P1.1) ─────────────────────────────────────────────
-    # MCP Prompts are reusable prompt templates the user (or agent) can invoke.
+    @mcp.resource("style-dna://rules/web")
+    def resource_rules_web() -> str:
+        """Web/TypeScript/React style rules only (saves context tokens)."""
+        return _get_style_rules_impl(path=".", scope="web")
+
+    @mcp.resource("style-dna://rules/compact")
+    def resource_rules_compact() -> str:
+        """Ultra-dense 1-line summary of rules (saves ~65% context tokens)."""
+        return _get_style_rules_impl(path=".", scope="compact")
+
+    # ── Prompt ────────────────────────────────────────────────────
 
     @mcp.prompt()
-    def ghostwrite(task: str, path: str = ".") -> str:
+    def ghostwrite(task: str, path: str = ".", scope: str = "all") -> str:
         """Generate a ghostwrite system prompt for the given coding task.
 
-        Fetches the current style rules and wraps them in a system prompt that
-        instructs the model to produce code indistinguishable from the rest of
-        this codebase.
-
         Args:
-            task: Description of the code to write (e.g. "Add a search endpoint").
+            task: Description of the code to write.
             path: Path to the codebase root.
+            scope: "all" (default), "python", "web", or "compact".
 
         Returns:
             A ready-to-use system prompt string.
         """
-        rules = _get_style_rules_impl(path=path)
+        rules = _get_style_rules_impl(path=path, scope=scope)
         return (
             "You are a ghostwriter for this codebase. "
             "Your goal is to write code that is completely indistinguishable "

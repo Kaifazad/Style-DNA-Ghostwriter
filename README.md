@@ -102,14 +102,17 @@ Add Style DNA to your Claude Code, Cursor, or Zed configuration (`claude_desktop
 
 * **Tools**:
   * `analyze_repo(path, save, force)`: Extracts conventions from source code.
-  * `get_style_rules(path)`: Returns human-readable rules for the current repo.
+  * `get_style_rules(path, scope)`: Returns human-readable rules (scopes: `all`, `python`, `web`, `compact`).
   * `refresh_style_profile(path)`: Re-analyzes after code changes.
-  * `check_code_style(code, path, language)`: **New in v0.2.0** — Verifies a generated snippet against repo conventions and returns line-specific violations.
+  * `check_code_style(code, path, language)`: Verifies a generated snippet against repo conventions and returns line-specific violations.
 * **Passive Resources** (auto-attached to agent context):
   * `style-dna://profile`: Full JSON profile of extracted conventions.
-  * `style-dna://rules`: Plain-English rules for immediate prompt conditioning.
+  * `style-dna://rules`: Full plain-English rules.
+  * `style-dna://rules/python`: Python rules only (saves context tokens).
+  * `style-dna://rules/web`: Web & TypeScript rules only (saves context tokens).
+  * `style-dna://rules/compact`: High-density 1-line bullet points (saves ~65% tokens).
 * **Prompt**:
-  * `/ghostwrite(task, path)`: System prompt template that conditions any model to ghostwrite conforming code.
+  * `/ghostwrite(task, path, scope)`: System prompt template conditioning any model to ghostwrite conforming code.
 
 ---
 
@@ -122,9 +125,40 @@ Ensure generated or modified code strictly adheres to your codebase's style DNA 
 style-dna check ./src/components/ProductCard.tsx
 
 # Output:
-# ✗ ProductCard.tsx: 2 violation(s) found:
-#   ⚠  line 12  [style.semicolons]  Remove trailing semicolon — this repo omits them.
-#   ℹ  line 24  [style.imports]     Use path aliases (`@/...`) instead of relative paths — repo convention.
+# FAIL: ProductCard.tsx - 2 violation(s) found:
+#   [WARN]  line 12 [style.semicolons] Remove trailing semicolon - this repo omits them.
+#   [INFO]  line 24 [style.imports]    Use path aliases (`@/...`) instead of relative paths - repo convention.
+```
+
+---
+
+## Git Pre-Commit Hook (`style-dna hook install`)
+
+Stop convention violations before they get committed:
+
+```bash
+# Automatically install pre-commit hook in .git/hooks/
+style-dna hook install
+
+# Uninstallation:
+style-dna hook uninstall
+```
+
+Whenever you run `git commit`, Style DNA automatically lints staged Python, TypeScript, and React files.
+
+---
+
+## Compact Mode (Save ~65% Context Window Tokens)
+
+Instead of feeding 50 lines of instructions into your LLM, generate an ultra-dense, token-saving summary:
+
+```bash
+style-dna show style_profile.json --scope compact
+
+# Output:
+# ## Style DNA (Compact)
+# - Web: Next.js App Router, state: zustand, styling: tailwind.
+# - JS/TS: single quotes, prefer interface, path aliases (@/...).
 ```
 
 ---

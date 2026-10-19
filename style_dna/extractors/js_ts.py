@@ -1,6 +1,7 @@
 """Extracts JavaScript and TypeScript conventions from source files.
 
-Uses lexical / regex-based analysis (no Node.js dependency required).
+Uses lexical / regex-based analysis with pre-pass comment stripping
+for high-accuracy detection without requiring a Node.js runtime.
 """
 
 from __future__ import annotations
@@ -20,12 +21,16 @@ _SINGLE_Q = re.compile(r"(?<![\\])\'(?:[^\'\\]|\\.)*\'")
 _DOUBLE_Q = re.compile(r'(?<![\\])\"(?:[^\"\\]|\\.)*\"')
 _BACKTICK_Q = re.compile(r"(?<![\\])`(?:[^`\\]|\\.)*`")
 
-# Function styles
-_ARROW_FN = re.compile(r"(?:const|let|var)\s+\w+\s*=\s*(?:\([^)]*\)|[a-zA-Z_$]\w*)\s*=>")
+# Function styles — handles TypeScript generics `<T>` and explicit return types
+_ARROW_FN = re.compile(
+    r"(?:const|let|var)\s+\w+\s*(?::\s*[^=]+)?=\s*(?:<[^>]*>\s*)?(?:\([^)]*\)|[a-zA-Z_$]\w*)\s*(?::\s*[^=]+)?=>"
+)
 _FUNC_DECL = re.compile(r"^(?:export\s+)?(?:async\s+)?function\s+\w+", re.MULTILINE)
 
 # Export styles
-_NAMED_EXPORT = re.compile(r"^export\s+(?:const|let|var|function|class|async\s+function)\s+", re.MULTILINE)
+_NAMED_EXPORT = re.compile(
+    r"^export\s+(?:const|let|var|function|class|async\s+function)\s+", re.MULTILINE
+)
 _DEFAULT_EXPORT = re.compile(r"^export\s+default\s+", re.MULTILINE)
 
 # Import aliases
@@ -43,6 +48,14 @@ _TS_TYPED_PARAM = re.compile(r"\w+\s*:\s*\w+")
 _JSDOC_COMMENT = re.compile(r"/\*\*[\s\S]*?\*/")
 _BLOCK_COMMENT = re.compile(r"/\*[\s\S]*?\*/")
 _INLINE_COMMENT = re.compile(r"//[^\n]*")
+
+
+def _strip_comments(code: str) -> str:
+    """Strip block and line comments to avoid false positives on syntax matching."""
+    # Strip block comments
+    no_blocks = re.sub(r"/\*[\s\S]*?\*/", "", code)
+    # Strip line comments
+    return re.sub(r"//[^\n]*", "", no_blocks)
 
 
 def extract_js_ts(sources: list[str], paths: list[Path]) -> dict:
@@ -79,58 +92,64 @@ def extract_js_ts(sources: list[str], paths: list[Path]) -> dict:
     for src, path in zip(sources, paths):
         is_ts = path.suffix in ts_extensions
 
-        # ── Semicolons ──
-        for line in src.splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
-                continue
-            if _STMT_END_SEMI.search(stripped):
-                semi_yes += 1
-            elif _STMT_END_NO_SEMI.search(stripped):
-                # Only count lines that look like statements, not blocks
-                if not stripped.endswith("{") and not stripped.endswith("}") and not stripped.endswith(","):
-                    semi_no += 1
-
-        # ── Quote style ──
-        q_single += len(_SINGLE_Q.findall(src))
-        q_double += len(_DOUBLE_Q.findall(src))
-        q_backtick += len(_BACKTICK_Q.findall(src))
-
-        # ── Function style ──
-        arrow_fns += len(_ARROW_FN.findall(src))
-        func_decls += len(_FUNC_DECL.findall(src))
-
-        # ── Export style ──
-        named_exports += len(_NAMED_EXPORT.findall(src))
-        default_exports += len(_DEFAULT_EXPORT.findall(src))
-
-        # ── Import aliases ──
-        alias_imports += len(_ALIAS_IMPORT.findall(src))
-        relative_imports += len(_RELATIVE_IMPORT.findall(src))
-
-        # ── TypeScript: interface vs type ──
-        if is_ts:
-            ts_interfaces += len(_TS_INTERFACE.findall(src))
-            ts_type_aliases += len(_TS_TYPE_ALIAS.findall(src))
-            ts_typed += len(_TS_TYPED_PARAM.findall(src))
-            ts_untyped_lines = sum(
-                1 for line in src.splitlines()
-                if re.match(r"^\s*(?:const|let|var)\s+\w+\s*=", line) and ":" not in line.split("=")[0]
-            )
-            ts_untyped += ts_untyped_lines
-
-        # ── Comment style ──
+        # ── Comment style (extracted on raw source) ──
         jsdoc_count += len(_JSDOC_COMMENT.findall(src))
-        # Block comments that are NOT jsdoc
         all_blocks = len(_BLOCK_COMMENT.findall(src))
         block_count += max(0, all_blocks - jsdoc_count)
         inline_count += len(_INLINE_COMMENT.findall(src))
+
+        # ── Clean source (comments stripped) for statement & string extraction ──
+        clean_src = _strip_comments(src)
+
+        # ── Semicolons ──
+        for line in src.splitlines():
+            # Strip trailing comments from line first
+            clean_line = re.sub(r"//.*$", "", line).strip()
+            if not clean_line or clean_line.startswith("/*") or clean_line.startswith("*"):
+                continue
+            if _STMT_END_SEMI.search(clean_line):
+                semi_yes += 1
+            elif _STMT_END_NO_SEMI.search(clean_line):
+                if not clean_line.endswith(("{", "}", ",", "=>", ":")):
+                    semi_no += 1
+
+        # ── Quote style (evaluated on code with comments stripped) ──
+        q_single += len(_SINGLE_Q.findall(clean_src))
+        q_double += len(_DOUBLE_Q.findall(clean_src))
+        q_backtick += len(_BACKTICK_Q.findall(clean_src))
+
+        # ── Function style ──
+        arrow_fns += len(_ARROW_FN.findall(clean_src))
+        func_decls += len(_FUNC_DECL.findall(clean_src))
+
+        # ── Export style ──
+        named_exports += len(_NAMED_EXPORT.findall(clean_src))
+        default_exports += len(_DEFAULT_EXPORT.findall(clean_src))
+
+        # ── Import aliases ──
+        alias_imports += len(_ALIAS_IMPORT.findall(clean_src))
+        relative_imports += len(_RELATIVE_IMPORT.findall(clean_src))
+
+        # ── TypeScript: interface vs type ──
+        if is_ts:
+            ts_interfaces += len(_TS_INTERFACE.findall(clean_src))
+            ts_type_aliases += len(_TS_TYPE_ALIAS.findall(clean_src))
+            ts_typed += len(_TS_TYPED_PARAM.findall(clean_src))
+            ts_untyped_lines = sum(
+                1
+                for line in clean_src.splitlines()
+                if re.match(r"^\s*(?:const|let|var)\s+\w+\s*=", line)
+                and ":" not in line.split("=")[0]
+            )
+            ts_untyped += ts_untyped_lines
 
     # ── Determine values ──
     total_semi = semi_yes + semi_no
     if total_semi > 5:
         semi_ratio = semi_yes / total_semi
-        js_semicolons = "always" if semi_ratio > 0.7 else ("never" if semi_ratio < 0.3 else "mixed")
+        js_semicolons = (
+            "always" if semi_ratio > 0.7 else ("never" if semi_ratio < 0.3 else "mixed")
+        )
     else:
         js_semicolons = "unknown"
 
@@ -150,14 +169,18 @@ def extract_js_ts(sources: list[str], paths: list[Path]) -> dict:
     total_fns = arrow_fns + func_decls
     if total_fns > 2:
         fn_ratio = arrow_fns / total_fns
-        js_function_style = "arrow" if fn_ratio > 0.65 else ("declaration" if fn_ratio < 0.35 else "mixed")
+        js_function_style = (
+            "arrow" if fn_ratio > 0.65 else ("declaration" if fn_ratio < 0.35 else "mixed")
+        )
     else:
         js_function_style = "unknown"
 
     total_exports = named_exports + default_exports
     if total_exports > 2:
         export_ratio = named_exports / total_exports
-        js_export_style = "named" if export_ratio > 0.65 else ("default" if export_ratio < 0.35 else "mixed")
+        js_export_style = (
+            "named" if export_ratio > 0.65 else ("default" if export_ratio < 0.35 else "mixed")
+        )
     else:
         js_export_style = "unknown"
 
@@ -170,7 +193,11 @@ def extract_js_ts(sources: list[str], paths: list[Path]) -> dict:
 
     total_ts_types = ts_interfaces + ts_type_aliases
     if total_ts_types > 2:
-        ts_type_style = "interface" if ts_interfaces > ts_type_aliases else ("type" if ts_type_aliases > ts_interfaces else "mixed")
+        ts_type_style = (
+            "interface"
+            if ts_interfaces > ts_type_aliases
+            else ("type" if ts_type_aliases > ts_interfaces else "mixed")
+        )
     else:
         ts_type_style = "unknown"
 

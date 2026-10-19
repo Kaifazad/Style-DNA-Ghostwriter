@@ -23,7 +23,7 @@ class TestCheckCodeStyleTool:
 
         code = 'def compute_total(a: int, b: int) -> int:\n    return a + b\n'
         result = _check_code_style_impl(code, path=str(tmp_path), language="python")
-        assert "✓ No style violations found" in result
+        assert "No style violations found" in result
 
     def test_check_code_style_reports_violations_with_line_numbers(self, tmp_path: Path):
         profile_path = tmp_path / DEFAULT_PROFILE_PATH

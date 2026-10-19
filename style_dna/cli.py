@@ -3,10 +3,11 @@
 Usage:
     style-dna init [path]                         # analyze + write convention files
     style-dna analyze <path> [--out profile.json]
-    style-dna show <profile.json> [--format text|json]
+    style-dna show <profile.json> [--format text|json] [--scope all|python|web|compact]
     style-dna generate <profile.json> "<task>"    # AI ghostwriter (needs anthropic)
-    style-dna check <file> [--profile profile.json] [--lang auto]  # P1.2
-    style-dna monorepo <path> [--out dir]         # P2.2
+    style-dna check <file> [--profile profile.json] [--lang auto]  # P1.2 verifier
+    style-dna hook [install|uninstall] [path]     # pre-commit git hook
+    style-dna monorepo <path> [--out dir]         # P2.2 monorepo analyzer
     style-dna mcp                                 # MCP stdio server
 """
 
@@ -77,7 +78,8 @@ def cmd_show(args: argparse.Namespace) -> None:
     if args.format == "json":
         print(profile.to_json())
     else:
-        print(profile.as_prompt_rules())
+        scope = getattr(args, "scope", "all")
+        print(profile.as_prompt_rules(scope=scope))
 
 
 def cmd_generate(args: argparse.Namespace) -> None:
@@ -95,10 +97,9 @@ def cmd_generate(args: argparse.Namespace) -> None:
 
 
 def cmd_check(args: argparse.Namespace) -> None:
-    """P1.2: Verify a source file against extracted style conventions."""
+    """Verify a source file against extracted style conventions."""
     from .verifier import check_code_style  # deferred
 
-    # Load code
     source_path = Path(args.file)
     try:
         code = source_path.read_text(encoding="utf-8", errors="ignore")
@@ -106,7 +107,6 @@ def cmd_check(args: argparse.Namespace) -> None:
         print(f"Error reading '{args.file}': {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Load profile
     if args.profile:
         try:
             profile = StyleProfile.load(args.profile)
@@ -114,7 +114,6 @@ def cmd_check(args: argparse.Namespace) -> None:
             print(f"Error loading profile: {e}", file=sys.stderr)
             sys.exit(1)
     else:
-        # Auto-discover: walk up from the file looking for .style-dna/
         search_root = source_path.resolve().parent
         found = None
         for ancestor in [search_root, *search_root.parents]:
@@ -134,7 +133,12 @@ def cmd_check(args: argparse.Namespace) -> None:
             print(f"Error loading profile: {e}", file=sys.stderr)
             sys.exit(1)
 
-    # Detect language from extension if not provided
+    if profile.is_stale(30):
+        print(
+            "[ADVISORY] Style profile was generated >30 days ago. "
+            "Run 'style-dna init' to re-sync with recent code changes.\n"
+        )
+
     language = args.lang
     if language == "auto":
         ext_map = {
@@ -159,8 +163,67 @@ def cmd_check(args: argparse.Namespace) -> None:
     sys.exit(1 if any(v.severity == "error" for v in violations) else 0)
 
 
+def cmd_hook(args: argparse.Namespace) -> None:
+    """Manage git pre-commit hook to verify style conventions on commit."""
+    root = Path(args.path or ".").resolve()
+    git_dir = root / ".git"
+    if not git_dir.exists():
+        print(f"Error: '{root}' is not a git repository.", file=sys.stderr)
+        sys.exit(1)
+
+    hooks_dir = git_dir / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    hook_file = hooks_dir / "pre-commit"
+
+    if args.action == "uninstall":
+        if hook_file.exists():
+            hook_file.unlink()
+            print("Uninstalled style-dna pre-commit hook.")
+        else:
+            print("No pre-commit hook was installed.")
+        return
+
+    hook_content = """#!/bin/sh
+# Style DNA Ghostwriter pre-commit hook
+# Automatically checks staged files against extracted conventions.
+
+echo "[style-dna] Checking staged files against style DNA conventions..."
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\\.(py|js|jsx|ts|tsx)$' || true)
+
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+FAILED=0
+for FILE in $STAGED; do
+    if [ -f "$FILE" ]; then
+        if ! style-dna check "$FILE"; then
+            FAILED=1
+        fi
+    fi
+done
+
+if [ $FAILED -ne 0 ]; then
+    echo ""
+    echo "[style-dna] Commit blocked: style convention violations found."
+    echo "[style-dna] Fix the issues above, or bypass with: git commit --no-verify"
+    exit 1
+fi
+
+exit 0
+"""
+    hook_file.write_text(hook_content, encoding="utf-8")
+    try:
+        hook_file.chmod(0o755)
+    except Exception:
+        pass
+    print(f"PASS: Style DNA pre-commit hook installed to {hook_file}")
+    print("Staged files will now be automatically checked on 'git commit'.")
+
+
 def cmd_monorepo(args: argparse.Namespace) -> None:
-    """P2.2: Analyze all packages in a monorepo."""
+    """Analyze all packages in a monorepo."""
     from .monorepo import analyze_monorepo  # deferred
 
     mono = analyze_monorepo(args.path)
@@ -177,7 +240,7 @@ def cmd_monorepo(args: argparse.Namespace) -> None:
             safe_name = pkg.name.replace("/", "__").replace("@", "")
             out_file = out_dir / f"{safe_name}.json"
             pkg.profile.save(out_file)
-            print(f"  Saved {pkg.name} → {out_file}")
+            print(f"  Saved {pkg.name} -> {out_file}")
         print(f"\nAll profiles written to: {args.out}")
     else:
         print(mono.as_prompt_rules())
@@ -213,7 +276,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--format",
         choices=["text", "json"],
         default="text",
-        help="Output format: 'text' (default) for plain-English rules, 'json' for raw profile data",
+        help="Output format: 'text' (default) for rules, 'json' for raw profile data",
+    )
+    p_show.add_argument(
+        "--scope",
+        choices=["all", "python", "web", "compact"],
+        default="all",
+        help="Rule scope: 'all' (default), 'python', 'web', or 'compact' (saves context tokens)",
     )
     p_show.set_defaults(func=cmd_show)
 
@@ -228,7 +297,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── check (P1.2) ──────────────────────────────────────────────
     p_check = sub.add_parser(
         "check",
-        help="Check a source file against extracted style conventions (P1)",
+        help="Check a source file against extracted style conventions",
     )
     p_check.add_argument("file", help="Path to the source file to check")
     p_check.add_argument(
@@ -244,10 +313,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_check.set_defaults(func=cmd_check)
 
+    # ── hook (Git Pre-Commit) ─────────────────────────────────────
+    p_hook = sub.add_parser(
+        "hook",
+        help="Install or uninstall pre-commit git hook to verify style on commit",
+    )
+    p_hook.add_argument("action", choices=["install", "uninstall"], help="Action: install or uninstall")
+    p_hook.add_argument("path", nargs="?", default=".", help="Path to repo root (default: cwd)")
+    p_hook.set_defaults(func=cmd_hook)
+
     # ── monorepo (P2.2) ───────────────────────────────────────────
     p_mono = sub.add_parser(
         "monorepo",
-        help="Analyze all packages in a monorepo and print per-package style rules (P2)",
+        help="Analyze all packages in a monorepo and print per-package style rules",
     )
     p_mono.add_argument("path", nargs="?", default=".", help="Path to monorepo root (default: cwd)")
     p_mono.add_argument(

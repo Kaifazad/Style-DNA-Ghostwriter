@@ -17,10 +17,10 @@ from pathlib import Path
 _USE_CLIENT = re.compile(r"""^['"]use client['"];?\s*$""", re.MULTILINE)
 _USE_SERVER = re.compile(r"""^['"]use server['"];?\s*$""", re.MULTILINE)
 
-# Component definitions
+# Component definitions — supports TypeScript generics `<T>` and return types
 _ARROW_COMPONENT = re.compile(
     r"(?:export\s+)?(?:default\s+)?(?:const|let)\s+([A-Z]\w+)\s*"
-    r"(?::\s*React\.FC\w*(?:<[^>]*>)?\s*)?=\s*(?:\([^)]*\)|[a-zA-Z_$]\w*)\s*=>"
+    r"(?::\s*[A-Za-z0-9_.]+(?:<[^>]*>)?\s*)?=\s*(?:<[^>]*>\s*)?(?:\([^)]*\)|[a-zA-Z_$]\w*)\s*(?::\s*[A-Za-z0-9_.]+(?:<[^>]*>)?\s*)?=>"
 )
 _FUNC_COMPONENT = re.compile(
     r"(?:export\s+)?(?:default\s+)?function\s+([A-Z]\w+)\s*\("

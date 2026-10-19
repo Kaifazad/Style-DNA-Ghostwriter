@@ -9,11 +9,17 @@ installed) so the analyzer never escapes the project tree.
 
 P2.1: When ``tree-sitter`` is installed the JS/TS ``ts_strict_rate`` is
 computed using the accurate AST backend instead of regex.
+
+Upgrades:
+- Git recency weighting: Prioritizes files touched in recent commits so
+  conventions reflect where the codebase is heading rather than ancient code.
+- Freshness tracking: Embeds UTC creation timestamp and commit hash.
 """
 
 from __future__ import annotations
 
 import ast
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .profile import StyleProfile
@@ -96,18 +102,66 @@ def _is_ignored(path: Path, root: Path, spec) -> bool:
         return False
 
 
+# ── Git Metadata & Recency Weighting ──────────────────────────────────────────
+
+def _get_git_metadata(root: Path) -> tuple[str, set[Path]]:
+    """Return (head_commit_hash, set_of_recently_touched_files)."""
+    head_sha = ""
+    recent_files: set[Path] = set()
+    git_dir = root / ".git"
+    if not git_dir.exists():
+        return "", set()
+    try:
+        import subprocess
+
+        p1 = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+        if p1.returncode == 0:
+            head_sha = p1.stdout.strip()
+
+        p2 = subprocess.run(
+            ["git", "log", "-n", "50", "--name-only", "--pretty=format:"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+        if p2.returncode == 0:
+            for line in p2.stdout.splitlines():
+                f = line.strip()
+                if f:
+                    candidate = (root / f).resolve()
+                    if candidate.is_file():
+                        recent_files.add(candidate)
+    except Exception:
+        pass
+    return head_sha, recent_files
+
+
+def _sort_recent(files: list[Path], recent: set[Path]) -> list[Path]:
+    """Prioritize files touched in recent commits over older files."""
+    if not recent:
+        return files
+    return sorted(files, key=lambda f: 0 if f.resolve() in recent else 1)
+
+
 # ── File iteration ────────────────────────────────────────────────────────────
 
 def _iter_source_files(root: Path, extensions: set[str], gitignore_spec=None):
     """Yield files matching the given extensions, skipping ignored dirs and
     any paths excluded by ``.gitignore`` (when ``pathspec`` is installed)."""
     for path in root.rglob("*"):
-        # Hard-coded dir exclusions (fast path)
         if any(part in DEFAULT_IGNORE_DIRS for part in path.parts):
             continue
         if path.suffix not in extensions or not path.is_file():
             continue
-        # .gitignore exclusions
         if _is_ignored(path, root, gitignore_spec):
             continue
         yield path
@@ -129,8 +183,8 @@ def analyze_codebase(path: str, max_files: int | None = 500) -> StyleProfile:
     Supports Python, JavaScript, TypeScript, React, Next.js, CSS/SCSS,
     Tailwind, and HTML.
 
-    The analyzer respects ``.gitignore`` patterns (requires ``pathspec``)
-    and never follows paths outside *path*.
+    The analyzer respects ``.gitignore`` patterns (requires ``pathspec``),
+    applies git recency weighting, and never follows paths outside *path*.
 
     Args:
         path: Path to the root of the codebase to analyze.
@@ -141,11 +195,17 @@ def analyze_codebase(path: str, max_files: int | None = 500) -> StyleProfile:
     """
     root = _validate_path(path)
     gitignore_spec = _load_gitignore(root)
+    commit_sha, recent_files = _get_git_metadata(root)
 
-    fields: dict = {"source_path": str(root)}
+    fields: dict = {
+        "source_path": str(root),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "commit_hash": commit_sha,
+    }
 
     # ── Python analysis ───────────────────────────────────────────
     py_files = list(_iter_source_files(root, PYTHON_EXTS, gitignore_spec))
+    py_files = _sort_recent(py_files, recent_files)
     if max_files:
         py_files = py_files[:max_files]
 
@@ -179,6 +239,10 @@ def analyze_codebase(path: str, max_files: int | None = 500) -> StyleProfile:
     js_ts_files = list(_iter_source_files(root, JS_TS_EXTS, gitignore_spec))
     css_files = list(_iter_source_files(root, CSS_EXTS, gitignore_spec))
     html_files = list(_iter_source_files(root, HTML_EXTS, gitignore_spec))
+
+    js_ts_files = _sort_recent(js_ts_files, recent_files)
+    css_files = _sort_recent(css_files, recent_files)
+    html_files = _sort_recent(html_files, recent_files)
 
     if max_files:
         js_ts_files = js_ts_files[:max_files]
