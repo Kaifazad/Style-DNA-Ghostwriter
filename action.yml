@@ -69,12 +69,13 @@ runs:
     - name: Install style-dna-ghostwriter
       shell: bash
       run: |
+        set -e
         if [ -n "$GITHUB_ACTION_PATH" ] && [ -f "$GITHUB_ACTION_PATH/pyproject.toml" ]; then
-          pip install --quiet "${GITHUB_ACTION_PATH}[guard]"
+          python -m pip install --quiet "${GITHUB_ACTION_PATH}[guard]"
         elif [ -f "pyproject.toml" ]; then
-          pip install --quiet ".[guard]"
+          python -m pip install --quiet ".[guard]"
         else
-          pip install --quiet "style-dna-ghostwriter[guard]" || pip install --quiet "style-dna-ghostwriter"
+          python -m pip install --quiet "style-dna-ghostwriter[guard]" || python -m pip install --quiet "style-dna-ghostwriter"
         fi
 
     - name: Analyze codebase
@@ -95,17 +96,15 @@ runs:
           MAX_FLAG="--max-files $SDNA_MAX"
         fi
 
+        # Ensure parent directory exists for output profile
+        mkdir -p "$(dirname "$SDNA_OUT")"
+
         # Run analysis
-        style-dna analyze "$SDNA_PATH" --out "$SDNA_OUT" $MAX_FLAG || {
-          if [ "$SDNA_FAIL_EMPTY" = "true" ]; then
-            echo "::error::No supported source files found under '$SDNA_PATH'."
-            exit 1
-          fi
-        }
+        python -m style_dna.cli analyze "$SDNA_PATH" --out "$SDNA_OUT" $MAX_FLAG
 
         # Write convention files
         if [ "$SDNA_WRITE_FILES" = "true" ] && [ -f "$SDNA_OUT" ]; then
-          style-dna init "$SDNA_PATH" || true
+          python -m style_dna.cli init "$SDNA_PATH" || true
         fi
 
         # Set outputs
@@ -117,7 +116,12 @@ runs:
           PY_COUNT=$(python -c "import json,sys; d=json.load(open('$SDNA_OUT')); print(d.get('files_analyzed',0)+d.get('web_files_analyzed',0))" 2>/dev/null || echo "0")
           echo "files-analyzed=$PY_COUNT" >> "$GITHUB_OUTPUT"
 
-          RULES=$(style-dna show "$SDNA_OUT" 2>/dev/null || echo "Profile unavailable")
+          if [ "$SDNA_FAIL_EMPTY" = "true" ] && [ "$PY_COUNT" = "0" ]; then
+            echo "::error::No supported source files found under '$SDNA_PATH'."
+            exit 1
+          fi
+
+          RULES=$(python -m style_dna.cli show "$SDNA_OUT" 2>/dev/null || echo "Profile unavailable")
           # Multiline output: use delimiter
           EOF=$(dd if=/dev/urandom bs=15 count=1 2>/dev/null | base64)
           echo "rules-summary<<$EOF" >> "$GITHUB_OUTPUT"

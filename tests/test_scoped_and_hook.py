@@ -112,3 +112,18 @@ class TestGitHookCli:
         assert excinfo.value.code == 1
         captured = capsys.readouterr()
         assert "not a git repository" in captured.err
+
+
+class TestProfileSaveNestedDir:
+    def test_save_creates_parent_directories_automatically(self, tmp_path: Path):
+        nested_target = tmp_path / "deep" / "nested" / "dir" / "style_profile.json"
+        assert not nested_target.parent.exists()
+
+        profile = StyleProfile(files_analyzed=3, function_naming="snake_case")
+        profile.save(nested_target)
+
+        assert nested_target.exists()
+        loaded = StyleProfile.load(nested_target)
+        assert loaded.files_analyzed == 3
+        assert loaded.function_naming == "snake_case"
+

@@ -112,7 +112,10 @@ class StyleProfile:
         return json.dumps(asdict(self), indent=2)
 
     def save(self, path: str | Path) -> None:
-        Path(path).write_text(self.to_json(), encoding="utf-8")
+        target = Path(path)
+        if target.parent:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(self.to_json(), encoding="utf-8")
 
     @classmethod
     def load(cls, path: str | Path) -> "StyleProfile":
